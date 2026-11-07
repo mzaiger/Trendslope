@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Trendslope</title>
+<link rel="icon" type="image/gif" href="favicon.gif">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=IBM+Plex+Mono:wght@400;600&family=Oswald:wght@600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#fff;--panel:#F2F7FD;--line:#D9E5F2;--text:#10233F;--dim:#64798E;--blue:#1B63E0;--radius:10px}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui,sans-serif}
+button{font-family:inherit;cursor:pointer}
+/* boogie header */
+.disco{position:relative;overflow:hidden;color:#fff;background:linear-gradient(120deg,#2a0a4a,#6a11cb 35%,#ff2fa0 70%,#ffb347);background-size:300% 300%;animation:shift 12s ease infinite;clip-path:polygon(0 0,100% 0,100% 78%,0 100%);padding-bottom:46px}
+@keyframes shift{50%{background-position:100% 50%}}
+.disco:before{content:"";position:absolute;inset:0;background:radial-gradient(circle,rgba(255,255,255,.35) 1px,transparent 2px) 0 0/26px 26px;animation:twinkle 2.4s linear infinite;opacity:.5}
+@keyframes twinkle{50%{opacity:.15}}
+.hero{position:relative;max-width:1700px;margin:0 auto;padding:18px 24px 10px;display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+.hero img{width:240px;max-width:44vw;height:auto;border-radius:14px;border:3px solid #00ffd0;box-shadow:0 0 24px #ff2fa0,0 0 8px #00ffd0;transform:rotate(-3deg)}
+h1{font-family:Oswald,sans-serif;font-weight:700;text-transform:uppercase;font-size:clamp(40px,9vw,84px);line-height:.9;margin:0;letter-spacing:.03em;text-shadow:3px 3px 0 #ff2fa0,6px 6px 0 #1B63E0,0 0 28px #fff8}
+.tag{font-family:'IBM Plex Mono',monospace;font-size:13px;letter-spacing:.18em;text-transform:uppercase;margin:10px 0 0;color:#00ffd0}
+.marq{position:relative;white-space:nowrap;overflow:hidden;font-family:Oswald;letter-spacing:.2em;font-size:13px;opacity:.9;padding:4px 0}
+.marq span{display:inline-block;animation:mq 28s linear infinite}
+@keyframes mq{to{transform:translateX(-50%)}}
+main{max-width:1700px;margin:0 auto;padding:0 24px 60px}
+.controls{display:flex;flex-wrap:wrap;gap:10px 16px;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:10;padding:10px 0;background:linear-gradient(var(--bg) 78%,transparent)}
+.tabs{display:flex;flex-wrap:wrap;gap:4px;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:3px}
+.tab{font-family:Oswald;font-weight:600;letter-spacing:.04em;text-transform:uppercase;font-size:13px;color:var(--dim);background:none;border:0;border-radius:999px;padding:7px 15px}
+.tab.on{background:var(--blue);color:#fff}
+.mono{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--dim)}
+.btn{background:var(--panel);border:1px solid var(--line);color:var(--blue);border-radius:6px;padding:6px 11px;font-family:'IBM Plex Mono',monospace;font-size:12px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px;margin-top:8px}
+.card{position:relative;display:flex;flex-direction:column;background:#fff;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;box-shadow:0 1px 2px rgba(16,35,63,.04);color:inherit;text-decoration:none}
+.card:hover{border-color:var(--blue)}
+.th{position:relative;aspect-ratio:4/3;background:var(--panel);overflow:hidden;display:flex;align-items:center;justify-content:center}
+.th img{width:100%;height:100%;object-fit:cover}
+.th.logo img{object-fit:contain;padding:18px}
+.th .fb{font-family:Oswald;text-transform:uppercase;letter-spacing:.08em;color:var(--dim);font-size:12px;padding:10px;text-align:center}
+.pill{position:absolute;left:8px;bottom:8px;border-radius:999px;padding:3px 10px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;color:#fff}
+.when{position:absolute;right:8px;top:8px;background:rgba(255,255,255,.93);border:1px solid var(--line);border-radius:999px;padding:3px 9px;font-family:'IBM Plex Mono',monospace;font-size:11.5px}
+.star{position:absolute;left:8px;top:8px;background:rgba(255,255,255,.93);border:1px solid var(--line);border-radius:999px;width:30px;height:30px;font-size:16px;line-height:1;color:#bbb}
+.star.on{color:#F2A93B}
+.bd{padding:10px 12px 12px}
+.bd b{display:block;font-size:14px;line-height:1.3}
+.bd span{display:block;color:var(--dim);font-size:12.5px;margin-top:4px;font-family:'IBM Plex Mono',monospace;line-height:1.45}
+</style></head><body>
+<header class="disco">
+ <div class="hero">
+  <img src="runner.gif" alt="Trendslope runner">
+  <div><h1>Trendslope</h1><p class="tag">Run the slope · dodge the noise · catch the trends</p></div>
+ </div>
+ <div class="marq"><span id="mq"></span></div>
+</header>
+<main>
+ <div class="controls">
+  <div class="tabs" id="tabs"></div>
+  <div class="tabs" id="ranges"></div>
+  <div class="mono"><span id="count"></span> <button class="btn" id="dietbtn">Diet start date</button></div>
+ </div>
+ <div class="grid" id="grid"></div>
+</main>
+<script>
+// ===== CONFIG: change repo names / branch here =====
+const U='mzaiger', BRANCH='main';
+const RAW=r=>`https://raw.githubusercontent.com/${U}/${r}/${BRANCH}/`;
+const SITE={diet:'SingleManDiet',trends:'TrendingTopics',movies:'Movies',music:'Music',software:'software',deals:'SlickDealsTracker',sports:'SportsDashboard'};
+const TREND_FILES=[['social_media_trends.json','social'],['google_trends.json','google'],['reddit_trends.json','reddit']];
+const DIET_CREATED='2026-11-02'; // SingleManDiet repo's first commit; change if you like
+const COLORS={diet:'#1E9E5A',deals:'#D9480F',sports:'#1B63E0',movies:'#7B2CBF',music:'#E0359B',software:'#0B7285',trends:'#F08C00'};
+const SLOTS=[['Breakfast',8],['Brunch',10],['Lunch',12],['Dinner',19],['Late dinner',22]];
+const RANGES=[[1,'1 day'],[2,'2 days'],[3,'3 days'],[7,'Week'],[30,'Month']];
+// ===== helpers =====
+const DAY=864e5, now=Date.now();
+const gc=(k,f)=>{const m=document.cookie.match('(?:^|; )'+k+'=([^;]*)');try{return m?JSON.parse(decodeURIComponent(m[1])):f}catch{return f}};
+const sc=(k,v)=>{document.cookie=`${k}=${encodeURIComponent(JSON.stringify(v))};max-age=31536000;path=/;SameSite=Lax`};
+const hs=s=>{let h=2166136261;for(const c of String(s)){h^=c.charCodeAt(0);h=Math.imul(h,16777619)}return(h>>>0)/4294967296};
+const J=async u=>{try{const r=await fetch(u+'?v='+Math.floor(now/3e5));return r.ok?await r.json():null}catch{return null}};
+const pick=o=>({title:o.title||o.name||o.topic||o.query||o.meal||o.item||'',img:o.image||o.img||o.poster||o.thumb||o.logo||'',url:o.url||o.link||'',desc:o.desc||o.description||o.summary||''});
+const arr=(o,d=0)=>{if(Array.isArray(o)&&o.length>2&&o[0]&&typeof o[0]=='object'&&pick(o[0]).title)return o;if(o&&typeof o=='object'&&d<4)for(const v of Object.values(o)){const r=arr(v,d+1);if(r)return r}};
+const lim=(a,n)=>a.slice(0,n);
+let S={tab:gc('ts_tab','live'),range:gc('ts_range',3),favs:gc('ts_favs',[]),created:gc('ts_created',DIET_CREATED)};
+let ITEMS=[], DIET=[];
+// ===== loaders (each pushes items and re-renders as it arrives) =====
+const add=(a)=>{ITEMS.push(...a);render()};
+async function movies(){const b=RAW(SITE.movies),ix=await J(b+'index.json');if(!ix)return;
+ for(const m of lim(ix.months,2)){const d=await J(`${b}data/${m.m}.json`);if(d)add(d.items.map(i=>({id:'mv'+i.id,src:'movies',title:i.title,img:i.poster,sub:(i.rt?'RT '+Math.round(i.rt)+'% · ':'')+i.release,url:i.imdb_id?'https://www.imdb.com/title/'+i.imdb_id:'',ts:Date.parse(i.release+'T12:00:00')})))}}
+async function music(){const d=await J(RAW(SITE.music)+'data/all.json');if(d)add(d.items.map(i=>({id:'mu'+i.id,src:'music',title:i.title,img:i.image,sub:i.artist||i.desc,url:i.url||''})))}
+async function software(){for(const f of['github','steam','itunes']){const d=await J(RAW(SITE.software)+`data/${f}.json`);if(d)add(lim(d.items,40).map(i=>({id:'sw'+f+i.id,src:'software',title:i.title,img:i.image,sub:f+(i.metric?' · '+Number(i.metric).toLocaleString():''),url:i.url||'',ts:i.date&&f=='github'?undefined:undefined})))}}
+async function deals(){try{const r=await fetch(RAW(SITE.deals)+'deals.xml?v='+Math.floor(now/3e5));const x=new DOMParser().parseFromString(await r.text(),'text/xml');
+ add([...x.querySelectorAll('deal')].map((e,n)=>{const g=t=>e.querySelector(t)?.textContent||'';const p=Date.parse(g('pubDate')||g('published'));return{id:'dl'+g('link').slice(-40),src:'deals',title:g('title'),img:g('image')||g('thumbnail'),sub:'Slickdeals',url:g('link'),ts:isNaN(p)?undefined:p}}))}catch{}}
+async function sports(){for(const l of['nfl','nhl','mlb','nba','ncaaf','ncaamb']){const d=await J(RAW(SITE.sports)+`data/${l}_dashboard.json`);if(!d)continue;const out=[];
+ for(const w of d.weeks||[])for(const dy of w.days||[])for(const s of dy.time_slots||[]){const g=(s.games||[]).find(g=>g.is_slot_pick)||s.games?.[0];if(!g)continue;
+  out.push({id:'sp'+g.id,src:'sports',pick:1,title:`${g.away_abbr||g.away_team} @ ${g.home_abbr||g.home_team}`,img:g.home_logo,logo:1,sub:`${l.toUpperCase()} · ${s.slot}${g.channel?' · '+g.channel:''} · best matchup ${s.best_matchup_score??''}`,url:'',ts:Date.parse(g.start_time)})}
+ add(out)}}
+async function trends(){for(const[f,l]of TREND_FILES){const d=await J(RAW(SITE.trends)+f);if(!d)continue;
+ add((d.items||[]).map(o=>{const t=Date.parse(o.started_trending||o.first_seen);return{id:'tr'+l+o.id,src:'trends',title:o.topic,img:o.image_url,sub:`${l} #${o.rank} \u00b7 ${(o.description||'').slice(0,110)}`,url:o.url,ts:isNaN(t)?undefined:t}}))}}
+async function diet(){const b=RAW(SITE.diet),[f,c]=await Promise.all([J(b+'meals.json'),J(b+'candidate_pool.json')]);
+ const mk=(a,n)=>a.filter(i=>i.active!==false&&+i.calories>=150).map(i=>({name:i.name||i.PRODUCT_NAME,img:i.image_url,url:i.PRODUCT_URL||'',cal:i.calories,where:i.restaurant||i.BRAND||'Frozen',bk:n(i)}));
+ DIET=[...mk(f?.meals||[],i=>i.category=='breakfast'),...mk(c||[],i=>/breakfast|egg|pancake|waffle|french toast|biscuit/i.test(i.PRODUCT_NAME))].filter(m=>m.name);render()}
+// ===== diet schedule: weeks start on the Monday after the creation date =====
+function dietItems(R,lo){if(!DIET.length)return[];const out=[];const today=new Date();today.setHours(0,0,0,0);
+ let start=null;if(S.created){const c=new Date(S.created+'T00:00:00');c.setDate(c.getDate()+((8-c.getDay())%7||7));start=c}
+ const days=Math.min(R,7);
+ for(let k=days-1;k>=0;k--){const d=new Date(today.getTime()-k*DAY);const wk=start?Math.max(0,Math.floor((d-start)/(7*DAY))):0;
+  SLOTS.forEach(([nm,h],si)=>{const key=nm.split(' ')[0].toLowerCase();const ok=si==0?m=>m.bk:si==1?m=>true:m=>!m.bk;let pool=DIET.filter(ok);if(!pool.length)pool=DIET;
+   const o=pool[Math.floor(hs(`${wk}-${d.getDay()}-${si}`)*pool.length)],p={title:o.name,img:o.img,url:o.url};const t=new Date(d);t.setHours(h,0,0,0);
+   out.push({id:`di${wk}-${d.getDay()}-${si}`,src:'diet',title:p.title,img:p.img,sub:`${nm} · ${(h%12||12)}:00 ${h<12?'AM':'PM'} · ${o.where} · ${o.cal} cal`,url:p.url,ts:t.getTime(),today:d.getTime()==today.getTime()})})}
+ return out}
+// ===== render =====
+const ago=t=>{const m=Math.round((t-now)/6e4),a=Math.abs(m);const s=a<60?a+'m':a<1440?Math.round(a/60)+'h':Math.round(a/1440)+'d';return m>0?'in '+s:s+' ago'};
+function render(){const R=S.range,lo=now-R*DAY,hi=now+R*DAY;let all=[];const per={};
+ for(const it of ITEMS){per[it.src]=(per[it.src]||0)+1;if(it.ts){if(it.ts<lo||it.ts>hi)continue;all.push(it)}else{if(per[it.src]>6*R+6)continue;all.push({...it,ts:lo+hs(it.id+R)*(now-lo)})}}
+ all.push(...dietItems(R,lo));
+ if(S.tab=='fav')all=all.filter(i=>S.favs.includes(i.id)||(i.src=='diet'&&i.today)||(i.src=='sports'&&i.pick));
+ else all=all.filter(i=>i.src!='sports'||i.pick);
+ all.sort((a,b)=>b.ts-a.ts);
+ document.getElementById('count').textContent=all.length+' tiles';
+ document.getElementById('grid').innerHTML=all.map(i=>{const on=S.favs.includes(i.id);const tag=i.url?'a':'div';
+  return`<${tag} class="card" ${i.url?`href="${i.url}" target="_blank" rel="noopener"`:''}><div class="th ${i.logo?'logo':''}">${i.img?`<img loading="lazy" src="${i.img}" alt="" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'fb',textContent:'${i.src}'}))">`:`<div class="fb">${i.src}</div>`}
+  <button class="star ${on?'on':''}" data-id="${i.id}">★</button><span class="when">${ago(i.ts)}</span><span class="pill" style="background:${COLORS[i.src]}">${i.src}</span></div>
+  <div class="bd"><b>${i.title.replace(/</g,'&lt;')}</b><span>${String(i.sub||'').replace(/</g,'&lt;')}</span></div></${tag}>`}).join('')}
+function ui(){document.getElementById('tabs').innerHTML=[['live','Live stream'],['fav','Favorites']].map(([k,n])=>`<button class="tab ${S.tab==k?'on':''}" data-tab="${k}">${n}</button>`).join('');
+ document.getElementById('ranges').innerHTML=RANGES.map(([d,n])=>`<button class="tab ${S.range==d?'on':''}" data-r="${d}">${n}</button>`).join('')}
+document.addEventListener('click',e=>{const t=e.target;
+ if(t.dataset.id){e.preventDefault();e.stopPropagation();const i=S.favs.indexOf(t.dataset.id);i<0?S.favs.push(t.dataset.id):S.favs.splice(i,1);while(JSON.stringify(S.favs).length>3000)S.favs.shift();sc('ts_favs',S.favs);render();return}
+ if(t.dataset.tab){S.tab=t.dataset.tab;sc('ts_tab',S.tab);ui();render()}
+ if(t.dataset.r){S.range=+t.dataset.r;sc('ts_range',S.range);ui();render()}});
+document.getElementById('dietbtn').onclick=()=>{const v=prompt('Single Man\u2019s Diet creation date (YYYY-MM-DD). Week 1 starts the Monday after:',S.created);if(v!==null){S.created=v.trim();sc('ts_created',S.created);render()}};
+const words=['TRENDSLOPE','#AF*!','FUNKY FRESH','$%&@!','KEEP RUNNING','WTF?!','BOOGIE ON UP','@#*&%'];
+document.getElementById('mq').textContent=(words.join('  ★  ')+'  ★  ').repeat(6);
+ui();render();[movies,music,software,deals,sports,trends,diet].forEach(f=>f());
+</script></body></html>
