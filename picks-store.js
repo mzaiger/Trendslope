@@ -1,0 +1,1987 @@
+/* Verbatim copy of SportsDashboard/picks-store.js (same pick_<sport>_<id> cookies), wrapped so it can't clash with other globals. */
+(function(){
+/*
+ * Shared "my picks" storage for the CFB / NFL / Picks pages.
+ *
+ * Picks are stored one cookie per game (pick_<sport>_<gameId>) rather than
+ * one giant cookie, so any page can cheaply enumerate every active pick for
+ * a sport without needing to know the full game list up front. Value is a
+ * tiny JSON blob: {"market":"spread"|"moneyline","side":"home"|"away"}.gemini-pick-label
+ * Only one pick is allowed per game -- selecting a new option overwrites
+ * the old one, and clicking the active option again clears it.
+ *
+ * Picks intentionally do NOT store the team name, line, or odds -- those
+ * are looked up live from the day's dashboard JSON at render time, so a
+ * pick always reflects the latest number even if odds move.
+ */
+
+/*
+ * Time zone used for every game time and "updated" stamp on the site: the
+ * visitor's own zone, read from the browser (no location permission, nothing
+ * is asked). If the browser doesn't report a usable zone -- or reports plain
+ * UTC, which is what privacy modes and headless browsers say -- fall back to
+ * Central time.
+ */
+const DISPLAY_TZ = (() => {
+  const FALLBACK = 'America/Chicago';
+  try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (!tz || /^(UTC|Etc\/UTC|Etc\/GMT|GMT|Etc\/Universal|Zulu)$/i.test(tz)) return FALLBACK;
+    new Intl.DateTimeFormat('en-US', { timeZone: tz });  // throws if the zone isn't valid
+    return tz;
+  } catch (e) { return FALLBACK; }
+})();
+
+
+/*
+ * Week label formatting, shared by nfl.html and picks.html.
+ *
+ * ESPN numbers NFL preseason weeks 1-4 the same as it numbers regular
+ * season weeks 1-4, so a bare "Week 1" is ambiguous between the Hall ofF
+ * Fame/preseason opener and the real regular-season opener. When a
+ * dashboard's season_type is 1 (preseason), this renders "P1"-"P4"
+ * instead; season_type 2 (regular) and 3 (postseason) just render
+ * "Week N" as before. CFB never sets season_type, so it always falls
+ * through to "Week N".
+ */
+// ESPN numbers the preseason as week 1 = the Hall of Fame Game, then
+// week 2 = the first real preseason slate, week 3 = the second, etc. --
+// so the on-screen "P" label needs to be shifted down by one AND the
+// Hall of Fame week itself needs its own "HOF" label instead of being
+// called "P1" (that off-by-one was showing "P1"/"P2" for what were
+// actually the Hall of Fame Game and the real P1 week).
+function preseasonWeekLabel(weekNum) {
+  return weekNum <= 1 ? 'HOF' : `Preseason Week ${weekNum - 1}`;
+}
+
+function formatWeekLabel(weekNum, seasonType) {
+  if (seasonType === 1) return preseasonWeekLabel(weekNum);
+  if (seasonType === 3) return `Postseason Week ${weekNum}`;
+  return seasonType === 2 ? `Regular Season Week ${weekNum}` : `Week ${weekNum}`;
+}
+
+/*
+ * Which week(s) to actually show on the College / NFL boards.
+ *
+ * dashboard.json / nfl_dashboard.json now keep every week ever built (see
+ * merge_weeks() in scripts/common.py) so Picks can grade a bet from way
+ * back -- but College and NFL themselves should still only ever show
+ * "now". Each build stamps the JSON with a top-level `current_week`: the
+ * same week number the build itself resolved as current (CFB's date-based
+ * derive_week(), or NFL's ESPN-lookup-plus-stuck-week-fallback in
+ * resolve_current_week() -- see scripts/build_ncaaf_dashboard.py /
+ * build_nfl_dashboard.py). College/NFL just display `current_week` and
+ * `current_week + 1`; everything else stays in the JSON (for Picks) but
+ * off the boards. This intentionally does NOT try to guess "current" from
+ * game kickoff times client-side -- it trusts whatever the last build run
+ * decided, which only changes once a day when the build actually runs.
+ */
+
+// Returns just the weeks College/NFL should render: the week matching
+// data.current_week, plus the one right after it, pulled out of the full
+// `weeks` array by week number (not by array position -- a week can be
+// briefly missing if a build hasn't run yet for it). Picks.html does NOT
+// use this -- it shows every week that's ever had a pick made against it.
+function selectDisplayWeeks(weeks, currentWeek) {
+  if (!weeks || !weeks.length) return [];
+  if (currentWeek === undefined || currentWeek === null) {
+    // Older cached JSON with no current_week field yet -- fall back to
+    // the two most recently stored weeks rather than showing nothing.
+    return weeks.slice(-2);
+  }
+  return weeks.filter(w => w.week === currentWeek || w.week === currentWeek + 1);
+}
+
+/*
+ * MLB day-label formatting + display-day selection.
+ *
+ * build_mlb_dashboard.py reuses the exact same weeks -> days -> time_slots
+ * -> games JSON shape NFL/CFB use (see that script's module docstring),
+ * but each "week" entry actually holds exactly one calendar day, and its
+ * "week" number is that day's date as YYYYMMDD (e.g. 20260815) instead of
+ * a real week number. That lets merge_weeks()/filterWeeksForDisplay()/
+ * computePickRecord() all work unchanged. These two helpers are the MLB
+ * equivalents of formatWeekLabel() and selectDisplayWeeks() above, reading
+ * the real date back out instead of formatting a week number.
+ */
+
+// Pulls the actual date out of a "week" entry's single day and formats it
+// nicely (e.g. "Friday, August 15") instead of showing the raw YYYYMMDD
+// number a "Week ..." label would use.
+function formatMlbDayLabel(week) {
+  const dateStr = week && week.days && week.days[0] && week.days[0].date;
+  if (dateStr) {
+    const d = new Date(dateStr + 'T00:00:00');
+    return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+  }
+  // No days (this day has zero games at all, e.g. an off-day) -- for
+  // MLB the "week" number itself always IS the date as YYYYMMDD (see
+  // build_mlb_dashboard.py's module docstring), so it can still be
+  // decoded into a real date directly instead of showing that raw
+  // 8-digit number.
+  const wk = week && week.week;
+  if (wk && /^\d{8}$/.test(String(wk))) {
+    const s = String(wk);
+    const d = new Date(`${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}T00:00:00`);
+    if (!isNaN(d)) return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+  }
+  return '';
+}
+
+// MLB equivalent of selectDisplayWeeks(): returns just the days mlb.html
+// should render -- the day immediately before currentDayKey (YYYYMMDD),
+// currentDayKey itself, and the day immediately after it in the array
+// (yesterday/today/tomorrow). Uses array position rather than
+// "currentDayKey +/- 1" arithmetic because YYYYMMDD doesn't increment
+// cleanly across a month boundary (e.g. 20260831 + 1 is not 20260901) --
+// the days that are actually "yesterday"/"tomorrow" are whatever the
+// build script placed immediately before/after in the sorted list, not
+// currentDayKey +/- 1.
+function selectDisplayDays(weeks, currentDayKey) {
+  if (!weeks || !weeks.length) return [];
+  const sorted = [...weeks].sort((a, b) => a.week - b.week);
+  if (currentDayKey === undefined || currentDayKey === null) {
+    return sorted.slice(-3);
+  }
+  const idx = sorted.findIndex(w => w.week === currentDayKey);
+  if (idx === -1) return sorted.slice(-3);
+  return sorted.slice(Math.max(0, idx - 1), idx + 2);
+}
+
+/*
+ * Hamburger nav (mobile) -- shared by every page. On desktop the links in
+ * #navLinks show inline in the nav bar as normal; on mobile they're
+ * hidden and shown as a dropdown when the hamburger button is tapped.
+ */
+function initHamburgerMenu() {
+  const btn = document.getElementById('hamburgerBtn');
+  const nav = document.getElementById('navLinks');
+  if (!btn || !nav) return;
+  btn.addEventListener('click', () => {
+    const isOpen = nav.classList.toggle('open');
+    btn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+  });
+  nav.querySelectorAll('a').forEach(a => {
+    a.addEventListener('click', () => nav.classList.remove('open'));
+  });
+  document.addEventListener('click', (e) => {
+    if (nav.classList.contains('open') && !nav.contains(e.target) && !btn.contains(e.target)) {
+      nav.classList.remove('open');
+      btn.setAttribute('aria-expanded', 'false');
+    }
+  });
+}
+
+/*
+ * Open/Closed/All status pills -- shared by every page. "Open" = the game
+ * hasn't started yet (no entry in scores.json, since fetch_scores.py only
+ * writes an entry once a game leaves "pre" state); "Closed" = the game has
+ * started or finished. Each page stores its own choice separately (a
+ * pageKey-scoped localStorage key) so, e.g., picking "All" on the NFL page
+ * doesn't change the Picks page's independent default.
+ */
+
+function gameHasStarted(g, scores) {
+  const entry = scores[String(g.id)];
+  return !!(entry && entry.status);
+}
+
+function getStatusFilter(pageKey, defaultVal) {
+  try {
+    const v = localStorage.getItem(`fb_status_filter_${pageKey}`);
+    if (v === 'open' || v === 'closed' || v === 'all') return v;
+  } catch (e) { /* ignore */ }
+  return defaultVal;
+}
+
+function setStatusFilter(pageKey, val) {
+  try { localStorage.setItem(`fb_status_filter_${pageKey}`, val); } catch (e) { /* ignore */ }
+}
+
+function flattenGames(weeks) {
+  const out = [];
+  (weeks || []).forEach(week => (week.days || []).forEach(day =>
+    (day.time_slots || []).forEach(slot => (slot.games || []).forEach(g => out.push(g)))));
+  return out;
+}
+
+// Filters a games array down to just "open" or "closed" games; "all"
+// (or any other value) returns the array unchanged.
+function filterGamesByStatus(games, statusFilter, scores) {
+  if (statusFilter !== 'open' && statusFilter !== 'closed') return games;
+  return games.filter(g => gameHasStarted(g, scores) === (statusFilter === 'closed'));
+}
+
+// Same shape/behavior as filterWeeksForDisplay() above, but filtering by
+// game-started status instead of Best-Matchup/Confidence.
+function applyStatusFilterToWeeks(weeks, statusFilter, scores) {
+  if (statusFilter !== 'open' && statusFilter !== 'closed') return weeks;
+  return weeks.map(week => {
+    const days = week.days
+      .map(day => {
+        const time_slots = day.time_slots
+          .map(slot => ({ ...slot, games: filterGamesByStatus(slot.games, statusFilter, scores) }))
+          .filter(slot => slot.games.length);
+        const game_count = time_slots.reduce((n, s) => n + s.games.length, 0);
+        return { ...day, time_slots, game_count };
+      })
+      .filter(day => day.time_slots.length);
+    const total_games = days.reduce((n, d) => n + d.game_count, 0);
+    return { ...week, days, total_games, _filtered: true };
+  });
+}
+
+// Updates the Open(x)/Closed(x)/All(x) pill counts from whatever game set
+// is currently on the board (after any other active filters, but before
+// the status filter itself, so switching pills is meaningful).
+function updateStatusPillCounts(weeks, scores) {
+  const games = flattenGames(weeks);
+  let open = 0, closed = 0;
+  games.forEach(g => { if (gameHasStarted(g, scores)) closed++; else open++; });
+  const openEl = document.getElementById('openCount');
+  const closedEl = document.getElementById('closedCount');
+  const allEl = document.getElementById('allCount');
+  if (openEl) openEl.textContent = String(open);
+  if (closedEl) closedEl.textContent = String(closed);
+  if (allEl) allEl.textContent = String(games.length);
+}
+
+// Call once per page, after the nav (with its .status-pills buttons) is in
+// the DOM. Returns { get() } so the page's render function can read the
+// current choice. `onChange` re-renders the board using the new filter.
+function initStatusPills(pageKey, defaultVal, onChange) {
+  let current = getStatusFilter(pageKey, defaultVal);
+  const buttons = document.querySelectorAll('.status-pill');
+  buttons.forEach(btn => btn.classList.toggle('active', btn.dataset.status === current));
+  buttons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      current = btn.dataset.status;
+      setStatusFilter(pageKey, current);
+      buttons.forEach(b => b.classList.toggle('active', b === btn));
+      onChange();
+    });
+  });
+  return { get: () => current };
+}
+
+// The "Matchup" badge on every card shows a plain 1..N rank within its
+// natural grouping (the whole day for MLB, the whole week for NFL/CFB --
+// see assign_matchup_ranks() in common.py) rather than the raw 0-100
+// blended score that rank is computed from.
+function matchupLabel(g) {
+  return (g.matchup_rank === null || g.matchup_rank === undefined)
+    ? 'Matchup: TBD'
+    : `Matchup: ${g.matchup_rank}`;
+}
+
+// The TV pill shows a comma-joined list of networks (see
+// broadcast_label() in build_nfl_dashboard.py / build_mlb_dashboard.py).
+// For 3+ networks, break it onto multiple lines two-at-a-time (e.g.
+// "ESPN, ABC" / "FOX, NBC") instead of letting it wrap wherever the pill's
+// width happens to cut it off mid-name.
+function formatChannelForPill(channel) {
+  if (!channel) return channel;
+  const parts = channel.split(', ');
+  if (parts.length <= 2) return channel;
+  const lines = [];
+  for (let i = 0; i < parts.length; i += 2) {
+    lines.push(parts.slice(i, i + 2).join(', '));
+  }
+  return lines.join('<br>');
+}
+
+const PICK_COOKIE_PREFIX = 'pick_';
+const PICK_LOCKED_STATUSES = ['final', 'in_progress', 'live', 'halftime'];
+
+// Picks expire every August 1st (UTC) instead of on a rolling day-count --
+// that's shortly before each new season's week 1 (Aug 22), so last
+// season's picks clear out on their own before the new one starts. Chrome
+// (and other Chromium-based browsers) caps a cookie's expiry at 400 days
+// out from when it's SET regardless of the date requested, but Aug 1 is
+// always well within 400 days of "now" for this use, so it's never
+// clamped in practice.
+function _nextAug1Utc() {
+  const now = new Date();
+  const year = now.getUTCFullYear();
+  let aug1 = new Date(Date.UTC(year, 7, 1, 0, 0, 0));
+  if (now >= aug1) aug1 = new Date(Date.UTC(year + 1, 7, 1, 0, 0, 0));
+  return aug1;
+}
+
+// Locked if either (a) the scores feed says the game is underway/final, or
+// (b) the game's own kickoff time has simply passed on the viewer's clock.
+// (b) is the important one for a static page: SCORES is fetched once when
+// the page loads, so a tab left open across kickoff would never see (a)
+// update on its own. Checking g.start_time against `new Date()` fresh on
+// every call means this is correct no matter how stale SCORES is or how
+// long the tab has been sitting open -- the periodic re-render (see
+// setInterval(renderBoard, ...) in each page's init()) re-evaluates it
+// every minute, and the pick click-handler double-checks it again at the
+// moment of the click as a last line of defense.
+function isPickLocked(gScore, g) {
+  const status = gScore && gScore.status ? String(gScore.status).toLowerCase() : '';
+  if (PICK_LOCKED_STATUSES.includes(status)) return true;
+
+  if (g && g.start_time && !g.start_time_tbd) {
+    const kickoff = new Date(g.start_time).getTime();
+    if (!Number.isNaN(kickoff) && Date.now() >= kickoff) return true;
+  }
+
+  return false;
+}
+
+function _pickCookieName(sport, gameId) {
+  return `${PICK_COOKIE_PREFIX}${sport}_${gameId}`;
+}
+
+function _setCookie(name, value) {
+  const expires = _nextAug1Utc().toUTCString();
+  document.cookie = `${name}=${encodeURIComponent(value)}; expires=${expires}; path=/; SameSite=Lax`;
+}
+
+function _deleteCookie(name) {
+  document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax`;
+}
+
+// Splits a stored cookie payload into { main, total } -- the two
+// independently-picked slots for a game (see togglePick below for why
+// there are two). Backward-compatible with every pick made before this
+// split existed: an old cookie's payload WAS the pick object directly (no
+// wrapper), and since Over/Under didn't exist yet when those were made,
+// any old-format pick is always a spread/moneyline pick -- it slots into
+// "main" untouched, so nothing already saved is lost or reinterpreted.
+function _normalizePickGroup(parsed) {
+  if (!parsed) return { main: null, total: null };
+  if (Object.prototype.hasOwnProperty.call(parsed, 'main') || Object.prototype.hasOwnProperty.call(parsed, 'total')) {
+    return { main: parsed.main || null, total: parsed.total || null };
+  }
+  return { main: parsed, total: null }; // old-format cookie
+}
+
+function getPickGroup(sport, gameId) {
+  const target = _pickCookieName(sport, gameId) + '=';
+  const parts = document.cookie.split(';');
+  for (let raw of parts) {
+    raw = raw.trim();
+    if (raw.startsWith(target)) {
+      const decoded = decodeURIComponent(raw.slice(target.length));
+      try {
+        const parsed = JSON.parse(decoded);
+        // Refresh the Aug 1 expiry on every read too, not just on
+        // set/change -- harmless once the target date is fixed, and
+        // keeps behavior consistent if this ever changes again.
+        _setCookie(_pickCookieName(sport, gameId), decoded);
+        return _normalizePickGroup(parsed);
+      } catch (e) { return { main: null, total: null }; }
+    }
+  }
+  return { main: null, total: null };
+}
+
+// The spread/moneyline pick for a game (mutually exclusive with itself --
+// picking Home ML clears Away ATS, etc. -- but independent of the O/U
+// pick below).
+function getMainPick(sport, gameId) {
+  return getPickGroup(sport, gameId).main;
+}
+
+// The Over/Under pick for a game (mutually exclusive with itself -- Over
+// clears Under and vice versa -- but independent of the ATS/ML pick
+// above, so a game can have BOTH a main pick and a total pick at once).
+function getTotalPick(sport, gameId) {
+  return getPickGroup(sport, gameId).total;
+}
+
+// True if EITHER slot has a pick -- used anywhere that only needs to know
+// "is this game picked at all" (e.g. the Picks page's game list).
+function hasAnyPick(sport, gameId) {
+  const g = getPickGroup(sport, gameId);
+  return !!(g.main || g.total);
+}
+
+function getAllPicks(sport) {
+  const prefix = `${PICK_COOKIE_PREFIX}${sport}_`;
+  const out = {};
+  document.cookie.split(';').forEach(raw => {
+    raw = raw.trim();
+    const eq = raw.indexOf('=');
+    if (eq === -1) return;
+    const name = raw.slice(0, eq);
+    if (!name.startsWith(prefix)) return;
+    const gameId = name.slice(prefix.length);
+    try { out[gameId] = _normalizePickGroup(JSON.parse(decodeURIComponent(raw.slice(eq + 1)))); }
+    catch (e) { /* ignore malformed cookie */ }
+  });
+  return out;
+}
+
+// Deletes every pick_* cookie, across every sport, with no way back --
+// only call this from behind a confirm step in the UI (see picks.html's
+// clear-all-picks modal). Returns the count removed so the caller can
+// bail out of re-rendering if there was nothing to clear.
+function clearAllPickCookies() {
+  const names = document.cookie.split(';').reduce((acc, raw) => {
+    const eq = raw.indexOf('=');
+    const name = (eq === -1 ? raw : raw.slice(0, eq)).trim();
+    if (name.startsWith(PICK_COOKIE_PREFIX)) acc.push(name);
+    return acc;
+  }, []);
+  names.forEach(_deleteCookie);
+  return names.length;
+}
+
+// Standard American-odds payout formula -- this is what DraftKings and
+// FanDuel (and every other US book) both use for both moneyline AND
+// against-the-spread bets: the "line" (point spread / run line) only
+// decides win-or-lose, it's the "american" price attached to whichever
+// side you took (e.g. -110 for a typical spread, or the moneyline price
+// itself) that decides the payout. Returns PROFIT only (not the stake
+// back), rounded to cents; null if there's no valid price to calculate
+// from.
+function calcPayout(americanOdds, stake) {
+  if (americanOdds === undefined || americanOdds === null) return null;
+  const n = Number(americanOdds);
+  if (Number.isNaN(n) || n === 0) return null;
+  const profit = n > 0 ? stake * (n / 100) : stake * (100 / Math.abs(n));
+  return Math.round(profit * 100) / 100;
+}
+
+// Toggle a pick: clicking the already-active option clears it, clicking any
+// other option overwrites it (only one pick allowed per game at a time).
+// `oddsSnapshot`, when provided, is `{draftkings: entry|null, fanduel: entry|null}`
+// -- each entry is a copy of that book's odds row (`{line, american}`) for
+// the chosen market/side, captured at the moment of the click. It's stored
+// in the cookie alongside the pick so the line you actually took survives
+// even if a later daily rebuild shows a different number (the market
+// moved) or no number at all (the book pulled the line after the game
+// closed). Live cells that were never picked keep showing today's live
+// line as always -- only the picked cell is pinned.
+//
+// payout10/payout100 (profit on a $10 / $100 bet, DraftKings' price if
+// present else FanDuel's) are calculated ONCE here, at pick time, and
+// stored in the cookie right alongside the locked-in line/price -- same
+// reasoning as locking the line itself: if a later rebuild changes or
+// removes this game's price entirely, the payout shown for an
+// already-made pick shouldn't silently change or disappear along with it.
+// Toggle a pick within its group. A game has two INDEPENDENT pick slots:
+// "main" (spread/moneyline -- picking any one of the 4 buttons there
+// clears whichever other one was active) and "total" (Over/Under --
+// picking one clears the other). The two slots don't affect each other,
+// so a game can carry a main pick AND a total pick at the same time --
+// e.g. Home ATS + Over -- each graded and paid out independently.
+// Clicking the already-active option in a slot clears just that slot.
+//
+// `oddsSnapshot`, when provided, is `{draftkings: entry|null, fanduel: entry|null}`
+// -- each entry is a copy of that book's odds row (`{line, american}`) for
+// the chosen market/side, captured at the moment of the click. It's stored
+// in the cookie alongside the pick so the line you actually took survives
+// even if a later daily rebuild shows a different number (the market
+// moved) or no number at all (the book pulled the line after the game
+// closed). Live cells that were never picked keep showing today's live
+// line as always -- only the picked cell is pinned.
+//
+// payout10/payout100 (profit on a $10 / $100 bet, DraftKings' price if
+// present else FanDuel's) are calculated ONCE here, at pick time, and
+// stored in the cookie right alongside the locked-in line/price -- same
+// reasoning as locking the line itself: if a later rebuild changes or
+// removes this game's price entirely, the payout shown for an
+// already-made pick shouldn't silently change or disappear along with it.
+function togglePick(sport, gameId, market, side, oddsSnapshot) {
+  const group = getPickGroup(sport, gameId);
+  const slot = market === 'total' ? 'total' : 'main';
+  const current = group[slot];
+
+  if (current && current.market === market && current.side === side) {
+    group[slot] = null;
+  } else {
+    const entry = oddsSnapshot ? (oddsSnapshot.draftkings || oddsSnapshot.fanduel) : null;
+    const americanOdds = entry ? entry.american : null;
+    group[slot] = {
+      market, side, odds: oddsSnapshot || null,
+      payout10: calcPayout(americanOdds, 10),
+      payout100: calcPayout(americanOdds, 100),
+    };
+  }
+
+  if (!group.main && !group.total) {
+    _deleteCookie(_pickCookieName(sport, gameId));
+  } else {
+    _setCookie(_pickCookieName(sport, gameId), JSON.stringify(group));
+  }
+  return group[slot];
+}
+
+// Returns the locked-in odds entry (`{line, american}`) captured at pick
+// time for one book's cell, but only if that cell is the one actually
+// picked (matching market + side) -- otherwise null, so callers fall back
+// to today's live line. This is what lets grading survive a book removing
+// its line after a game closes.
+function getLockedOddsEntry(sport, gameId, market, side, book) {
+  const pick = market === 'total' ? getTotalPick(sport, gameId) : getMainPick(sport, gameId);
+  if (!pick || pick.market !== market || pick.side !== side || !pick.odds) return null;
+  return pick.odds[book] || null;
+}
+
+// Short "(-3.5)" / "(+150)" suffix for the active pick button, using
+// whichever book's snapshot was captured (DraftKings first, then
+// FanDuel) so you can see at a glance what number you actually picked at.
+function formatLockedLine(pick) {
+  if (!pick || !pick.odds) return '';
+  const entry = pick.odds.draftkings || pick.odds.fanduel;
+  if (!entry) return '';
+  const raw = (pick.market === 'spread' || pick.market === 'total') ? entry.line : entry.american;
+  if (raw === undefined || raw === null || raw === '') return '';
+  const n = Number(raw);
+  if (Number.isNaN(n)) return '';
+  return ` (${n > 0 ? '+' : ''}${n})`;
+}
+
+// Short "ATS"/"ML"/"O/U" label for a pick's market, used on the payout
+// line and in exports/summaries so each bet type reads on its own.
+function marketLabel(market) {
+  return market === 'spread' ? 'ATS' : market === 'total' ? 'O/U' : 'ML';
+}
+
+// Shown inside the pick toolbar, under the buttons, once a pick has
+// been made -- what a $10 and a $100 bet on the picked side would pay out
+// (profit only, not counting the stake back), using whichever payout was
+// locked in at pick time (see togglePick above). Falls back to computing
+// live from the pick's stored odds snapshot for a pick made before that
+// locking existed (an older cookie won't have payout10/payout100 at all).
+// Labeled with the bet type (ATS/ML/O-U) so it's clear which of the three
+// separately-tracked bets this payout belongs to.
+function renderPayoutSummary(pick) {
+  if (!pick) return '';
+  let p10 = pick.payout10;
+  let p100 = pick.payout100;
+  if (p10 === undefined || p100 === undefined) {
+    const entry = pick.odds ? (pick.odds.draftkings || pick.odds.fanduel) : null;
+    const americanOdds = entry ? entry.american : null;
+    p10 = calcPayout(americanOdds, 10);
+    p100 = calcPayout(americanOdds, 100);
+  }
+  if (p10 === null || p10 === undefined || p100 === null || p100 === undefined) return '';
+  return `<div class="payout-summary">Win $${p10.toFixed(2)} on $10 for ${marketLabel(pick.market)}</div>`;
+}
+// The pick toolbar for one game card: away/home x spread/moneyline, plus
+// Over/Under (the total's number is baked right into the button label,
+// since there's no team name to hang it on the way ATS/ML have). The
+// spread/moneyline buttons and the Over/Under buttons are two
+// INDEPENDENT selections (see togglePick) -- a game can have one active
+// button from each half at once. Laid out 2 rows x 3 columns: row 1 is
+// away-side/Over, row 2 is home-side/Under, so each bet type keeps its
+// own column (ATS | ML | Total). Once a game is final
+// (gScore.status === 'final'), the buttons render disabled -- any picks
+// made still show, but can no longer be changed after the fact.
+function renderPickToolbar(sport, g, gScore) {
+  const mainPick = getMainPick(sport, g.id);
+  const totalPick = getTotalPick(sport, g.id);
+  const locked = isPickLocked(gScore, g);
+
+  const oddsFor = (market, side) => ({
+    draftkings: (g.odds?.draftkings?.[market]?.[side]) || null,
+    fanduel: (g.odds?.fanduel?.[market]?.[side]) || null,
+  });
+
+  const totalLine = _currentTotalLine(g);
+  const totalLineSuffix = (totalLine !== null && totalLine !== undefined) ? ` ${totalLine}` : '';
+
+  // Row-major order for a 3-column grid: [away ATS, away ML, Over],
+  // [home ATS, home ML, Under].
+  const opts = [
+    { market: 'spread', side: 'away', label: `${g.away_team} ATS` },
+    { market: 'moneyline', side: 'away', label: `${g.away_team} ML` },
+    { market: 'total', side: 'over', label: `Over${totalLineSuffix} Total` },
+    { market: 'spread', side: 'home', label: `${g.home_team} ATS` },
+    { market: 'moneyline', side: 'home', label: `${g.home_team} ML` },
+    { market: 'total', side: 'under', label: `Under${totalLineSuffix} Total` },
+  ];
+
+  const btns = opts.map(o => {
+    const relevantPick = o.market === 'total' ? totalPick : mainPick;
+    const active = relevantPick && relevantPick.market === o.market && relevantPick.side === o.side;
+    const oddsAttr = encodeURIComponent(JSON.stringify(oddsFor(o.market, o.side)));
+    const lockedSuffix = active ? formatLockedLine(relevantPick) : '';
+
+    return `<button type="button" class="pick-btn${active ? ' active' : ''}" data-sport="${sport}" data-game="${g.id}" data-market="${o.market}" data-side="${o.side}" data-odds="${oddsAttr}" data-start="${g.start_time_tbd ? '' : (g.start_time || '')}"${locked ? ' disabled' : ''}>${active ? '<svg class="i-star" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 1.8l2.5 5.4 5.9.7-4.4 4 1.2 5.8L10 14.8 4.8 17.7 6 11.9 1.6 7.9l5.9-.7z"/></svg>' : ''}${o.label}${lockedSuffix}</button>`;
+  }).join('');
+
+  // Both payout lines stack when both a main pick AND a total pick are
+  // active -- each is its own separate $10 bet (see renderPayoutSummary).
+  // Wrapped in its own box (".pick-toolbar-payout") so row view can size
+  // it to match the odds table's own header row and anchor it flush to
+  // the top of the card -- see the CSS for how tile view treats this
+  // same box differently (just plain stacked text above the buttons).
+  const payoutHtml = `${mainPick ? renderPayoutSummary(mainPick) : ''}${totalPick ? renderPayoutSummary(totalPick) : ''}`;
+
+  return `<div class="pick-toolbar"><div class="pick-toolbar-payout">${payoutHtml}</div><div class="pick-buttons">${btns}</div></div>`;
+}
+
+// CSS class to drop on an odds-table cell so the picked market/side lights
+// up yellow wherever it appears (both the DraftKings and FanDuel rows).
+function pickCellClass(sport, g, market, side) {
+  const pick = market === 'total' ? getTotalPick(sport, g.id) : getMainPick(sport, g.id);
+  return (pick && pick.market === market && pick.side === side) ? 'picked' : '';
+}
+
+// CSS class to mark an odds-table cell green (hit) or red (miss), once a
+// game is final -- the team that covered (spread) or won outright
+// (moneyline) gets 'hit', the other side gets 'miss'. A push (spread) or
+// tie (moneyline) -- no actual loser -- marks BOTH sides 'hit'. Empty
+// string while the game is still live/unstarted, since the outcome isn't
+// settled yet, or if this cell has no line/odds posted. `entry` is the
+// cell's own live odds object (e.g. spread.home) from today's build. For
+// the exact cell that was picked (market/side match), the line locked in
+// at pick time (see getLockedOddsEntry) takes priority over `entry` --
+// that's what keeps grading correct even after a book stops publishing a
+// line for a finished game. Un-picked cells always use today's live line,
+// same as before.
+function oddsHitClass(sport, gameId, book, market, side, entry, gScore) {
+  if (!isPickLocked(gScore)) return '';
+
+  if (gScore.home_score === null || gScore.home_score === undefined) return '';
+  if (gScore.away_score === null || gScore.away_score === undefined) return '';
+
+  if (market === 'total') {
+    const home = Number(gScore.home_score);
+    const away = Number(gScore.away_score);
+    if (Number.isNaN(home) || Number.isNaN(away)) return '';
+
+    const lockedEntry = getLockedOddsEntry(sport, gameId, market, side, book);
+    const source = lockedEntry || entry;
+    if (!source || source.line === null || source.line === undefined) return '';
+    const line = Number(source.line);
+    if (Number.isNaN(line)) return '';
+
+    const combined = home + away;
+    // Currently pushing live game or final push: no loser (same neutral
+    // convention as spread's exact-margin push, above).
+    if (combined === line) return 'hit';
+    const overHits = combined > line;
+    return (side === 'over') === overHits ? 'hit' : 'miss';
+  }
+
+  const sideScore = Number(side === 'home' ? gScore.home_score : gScore.away_score);
+  const otherScore = Number(side === 'home' ? gScore.away_score : gScore.home_score);
+
+  if (Number.isNaN(sideScore) || Number.isNaN(otherScore)) return '';
+
+  if (market === 'moneyline') {
+    // Currently tied live game or final tie: no loser.
+    // If you want live ties to stay neutral instead of green, return '' here.
+    if (sideScore === otherScore) return 'hit';
+
+    return sideScore > otherScore ? 'hit' : 'miss';
+  }
+
+  if (market === 'spread') {
+    const lockedEntry = getLockedOddsEntry(sport, gameId, market, side, book);
+    const source = lockedEntry || entry;
+    if (!source || source.line === null || source.line === undefined) return '';
+
+    const line = Number(source.line);
+
+    if (Number.isNaN(line)) return '';
+
+    const result = (sideScore - otherScore) + line;
+
+    // Currently pushing live game or final push: no loser.
+    // If you want live pushes to stay neutral instead of green, return '' here.
+    if (result === 0) return 'hit';
+
+    return result > 0 ? 'hit' : 'miss';
+  }
+
+  return '';
+}
+
+// Whether the pick actually made on this game (if any) is currently a win
+// ('hit'), a loss ('miss'), or not yet determined ('' -- game hasn't
+// finished, or there's no line to grade against). Reuses oddsHitClass()
+// against the picked market/side (preferring the DraftKings snapshot,
+// falling back to FanDuel, same preference order as formatLockedLine) so
+// this always agrees with the color already shown on that picked cell.
+// Returns null if no pick was made on this game at all.
+// Whether the MAIN (ATS/ML) pick made on this game (if any) is currently
+// a win ('hit'), a loss ('miss'), or not yet determined (''). See
+// totalPickOutcome() below for the equivalent on the O/U pick -- a game
+// can have both at once, graded independently. Reuses oddsHitClass()
+// against the picked market/side (preferring the DraftKings snapshot,
+// falling back to FanDuel, same preference order as formatLockedLine) so
+// this always agrees with the color already shown on that picked cell.
+// Returns null if no main pick was made on this game at all.
+function pickOutcome(sport, g, gScore) {
+  const pick = getMainPick(sport, g.id);
+  if (!pick) return null;
+  const dkEntry = g.odds && g.odds.draftkings && g.odds.draftkings[pick.market] && g.odds.draftkings[pick.market][pick.side];
+  const fdEntry = g.odds && g.odds.fanduel && g.odds.fanduel[pick.market] && g.odds.fanduel[pick.market][pick.side];
+  const book = dkEntry ? 'draftkings' : 'fanduel';
+  const entry = dkEntry || fdEntry || null;
+  return oddsHitClass(sport, g.id, book, pick.market, pick.side, entry, gScore) || '';
+}
+
+// Same as pickOutcome() above, but for the O/U pick slot.
+function totalPickOutcome(sport, g, gScore) {
+  const pick = getTotalPick(sport, g.id);
+  if (!pick) return null;
+  const dkEntry = g.odds && g.odds.draftkings && g.odds.draftkings.total && g.odds.draftkings.total[pick.side];
+  const fdEntry = g.odds && g.odds.fanduel && g.odds.fanduel.total && g.odds.fanduel.total[pick.side];
+  const book = dkEntry ? 'draftkings' : 'fanduel';
+  const entry = dkEntry || fdEntry || null;
+  return oddsHitClass(sport, g.id, book, 'total', pick.side, entry, gScore) || '';
+}
+
+// Grades a saved pick against the FINAL score only (gScore.status must be
+// exactly 'final') -- unlike oddsHitClass()/pickOutcome() just above
+// (used for the live BOARD's cell coloring, which intentionally also
+// colors in-progress/halftime games using the CURRENT score so you can
+// watch a live pick track in real time), every STATS use -- Open/My
+// Accuracy/$10 on picks.html, and My Accuracy on accuracy.html -- only
+// counts a pick as decided once the game has genuinely finished, so a
+// game still in progress (whose score can still flip) stays uncounted
+// instead of being scored as a win or loss prematurely. This also reads
+// the locked-in line straight off the pick's own odds snapshot
+// (book-preference-ordered: draftkings then fanduel) rather than going
+// through getLockedOddsEntry(), which could grab the wrong book's
+// snapshot when today's live odds still happened to carry an entry for
+// a different book than the one actually picked.
+// Returns 'hit' | 'miss' | null (not final yet, or nothing to grade against).
+function _myPickResult(g, gScore, pick) {
+  const final = _finalScore(gScore);
+  if (!final) return null;
+
+  const sideScore = pick.side === 'home' ? final.home : final.away;
+  const otherScore = pick.side === 'home' ? final.away : final.home;
+
+  if (pick.market === 'moneyline') {
+    if (sideScore === otherScore) return 'hit'; // tie -> push, same convention oddsHitClass uses
+    return sideScore > otherScore ? 'hit' : 'miss';
+  }
+
+  if (pick.market === 'spread') {
+    let line = null;
+    if (pick.odds) {
+      const entry = pick.odds.draftkings || pick.odds.fanduel;
+      if (entry && entry.line !== undefined && entry.line !== null) line = Number(entry.line);
+    }
+    if (line === null) {
+      // Pick made before line-locking existed (or the snapshot just
+      // didn't capture a line) -- fall back to today's live line for the
+      // picked side.
+      const dk = g.odds && g.odds.draftkings && g.odds.draftkings.spread && g.odds.draftkings.spread[pick.side];
+      const fd = g.odds && g.odds.fanduel && g.odds.fanduel.spread && g.odds.fanduel.spread[pick.side];
+      const src = dk || fd;
+      line = (src && src.line !== undefined && src.line !== null) ? Number(src.line) : null;
+    }
+    if (line === null || Number.isNaN(line)) return null;
+
+    const result = (sideScore - otherScore) + line;
+    if (result === 0) return 'hit'; // push -> hit, same convention oddsHitClass uses
+    return result > 0 ? 'hit' : 'miss';
+  }
+
+  if (pick.market === 'total') {
+    let line = null;
+    if (pick.odds) {
+      const entry = pick.odds.draftkings || pick.odds.fanduel;
+      if (entry && entry.line !== undefined && entry.line !== null) line = Number(entry.line);
+    }
+    if (line === null) {
+      // Pick made before line-locking existed -- fall back to today's
+      // live total line.
+      const live = _currentTotalLine(g);
+      line = (live !== null && live !== undefined) ? Number(live) : null;
+    }
+    if (line === null || Number.isNaN(line)) return null;
+
+    const combined = final.home + final.away;
+    if (combined === line) return 'hit'; // push -> hit, same convention as spread/oddsHitClass
+    const overHits = combined > line;
+    return (pick.side === 'over') === overHits ? 'hit' : 'miss';
+  }
+
+  return null;
+}
+
+// Summary across every pick ever made (any week, any sport), for the
+// badges at the top of the Picks page. `datasets` is an array of
+// {sport, data} (the full, unfiltered dashboard JSON for each sport);
+// `scores` is {cfb: {...}, nfl: {...}} from data/scores.json. A push/tie
+// counts as correct, matching the same convention oddsHitClass() already
+// uses for cell coloring.
+//
+// Every picked game falls into exactly one bucket:
+//   - active: the game hasn't been graded yet (not finished, or no score
+//     posted yet) -- the pick is still "live"
+//   - inactive: the game is graded (win, loss, or push) -- inactiveCorrect
+//     is how many of those inactive picks hit
+function computePickRecord(datasets, scores) {
+  let active = 0, inactiveTotal = 0, inactiveCorrect = 0;
+  (datasets || []).forEach(({ sport, data }) => {
+    if (!data) return;
+    (data.weeks || []).forEach(week => (week.days || []).forEach(day => (day.time_slots || []).forEach(slot => {
+      (slot.games || []).forEach(g => {
+        const picks = [getMainPick(sport, g.id), getTotalPick(sport, g.id)].filter(Boolean);
+        if (!picks.length) return;
+        const gScore = (scores[sport] || {})[String(g.id)];
+        picks.forEach(pick => {
+          const outcome = _myPickResult(g, gScore, pick);
+          if (outcome === 'hit') { inactiveTotal++; inactiveCorrect++; }
+          else if (outcome === 'miss') { inactiveTotal++; }
+          else { active++; }
+        });
+      });
+    })));
+  });
+  return { active, inactiveTotal, inactiveCorrect };
+}
+
+// Net profit/loss across every GRADED pick ever made (any week, any
+// sport), as if every single pick had been a flat $10 bet -- for the
+// $10/pick badge on the Picks page. A win adds that pick's locked-in
+// payout10 (falling back to a live calcPayout() for a pick made before
+// payout tracking existed, same as renderPayoutSummary); a loss
+// subtracts the $10 stake. Ungraded picks contribute nothing yet.
+//
+// Known simplification: _myPickResult() treats a push/tie as 'hit', same
+// as oddsHitClass() does for cell coloring -- a true push actually just
+// returns your stake (net $0), not a full win payout, so a game that
+// lands on an exact push is counted here as a win instead of a wash.
+// Pushes are rare enough (an exact-margin spread finish) that this is a
+// reasonable approximation rather than a real accuracy problem.
+function computeMoneyRecord(datasets, scores) {
+  let net = 0;
+  (datasets || []).forEach(({ sport, data }) => {
+    if (!data) return;
+    (data.weeks || []).forEach(week => (week.days || []).forEach(day => (day.time_slots || []).forEach(slot => {
+      (slot.games || []).forEach(g => {
+        const picks = [getMainPick(sport, g.id), getTotalPick(sport, g.id)].filter(Boolean);
+        if (!picks.length) return;
+        const gScore = (scores[sport] || {})[String(g.id)];
+        picks.forEach(pick => {
+          const outcome = _myPickResult(g, gScore, pick);
+          if (outcome === 'hit') {
+            let p10 = pick.payout10;
+            if (p10 === undefined) {
+              const entry = pick.odds ? (pick.odds.draftkings || pick.odds.fanduel) : null;
+              p10 = calcPayout(entry ? entry.american : null, 10);
+            }
+            net += (p10 || 0);
+          } else if (outcome === 'miss') {
+            net -= 10;
+          }
+        });
+      });
+    })));
+  });
+  return Math.round(net * 100) / 100;
+}
+
+// All-time version of computeMoneyRecord for accuracy.html's "Total
+// Winnings" stat and the by-sport table -- same flat-$10-per-pick math,
+// filtered by the page's OWN filterState the same way
+// computeMyAccuracyAllTime is: bestMatchupOnly restricts to slot-pick
+// games, while Gemini's confidence threshold (minConf) is deliberately
+// ignored, since a bet you made isn't graded (or paid) differently based
+// on how confident Gemini happened to be about that game -- same
+// reasoning documented on computeMyAccuracyAllTime.
+//
+// filterState.confType DOES restrict which of your picks count here (by
+// the PICK's own market, 'moneyline' for ml / 'spread' for ats -- same
+// convention as computeMyAccuracyAllTime), so callers that want the
+// always-combined top-line total should pass confType:'both' explicitly
+// rather than forwarding the page's live toggle value.
+function computeMoneyRecordAllTime(datasets, scores, filterState) {
+  let net = 0, graded = 0;
+  const wantMarket = filterState && filterState.confType === 'ml' ? 'moneyline'
+    : filterState && filterState.confType === 'ats' ? 'spread'
+    : filterState && filterState.confType === 'ou' ? 'total'
+    : null; // null = all markets count
+
+  (datasets || []).forEach(({ sport, data }) => {
+    if (!data) return;
+    (data.weeks || []).forEach(week => (week.days || []).forEach(day => (day.time_slots || []).forEach(slot => {
+      (slot.games || []).forEach(g => {
+        if (filterState && filterState.bestMatchupOnly && !g.is_slot_pick) return;
+        const picks = [getMainPick(sport, g.id), getTotalPick(sport, g.id)].filter(Boolean);
+        if (!picks.length) return;
+        const gScore = (scores[sport] || {})[String(g.id)];
+        picks.forEach(pick => {
+          if (wantMarket && pick.market !== wantMarket) return;
+          const outcome = _myPickResult(g, gScore, pick);
+          if (outcome === 'hit') {
+            let p10 = pick.payout10;
+            if (p10 === undefined) {
+              const entry = pick.odds ? (pick.odds.draftkings || pick.odds.fanduel) : null;
+              p10 = calcPayout(entry ? entry.american : null, 10);
+            }
+            net += (p10 || 0);
+            graded++;
+          } else if (outcome === 'miss') {
+            net -= 10;
+            graded++;
+          }
+        });
+      });
+    })));
+  });
+  return { net: Math.round(net * 100) / 100, graded };
+}
+
+// Click-delegation for every .pick-btn inside containerEl. `onPick` runs
+// after each toggle so the caller can re-render with the new cookie state.
+function attachPickHandlers(containerEl, onPick) {
+  containerEl.addEventListener('click', (e) => {
+    const btn = e.target.closest('.pick-btn');
+    if (!btn || !containerEl.contains(btn) || btn.disabled) return;
+
+    // Re-check kickoff time right now, at the moment of the click, instead
+    // of trusting the `disabled` attribute alone. That attribute was only
+    // ever as fresh as the last render -- if the page has been sitting
+    // open since before kickoff (no re-render has happened in between),
+    // `disabled` would still be false even though the game has since
+    // started. This catches that case even if the periodic re-render
+    // timer somehow didn't fire in between.
+    const startStr = btn.dataset.start;
+    if (startStr) {
+      const kickoff = new Date(startStr).getTime();
+      if (!Number.isNaN(kickoff) && Date.now() >= kickoff) {
+        if (typeof onPick === 'function') onPick(); // re-render so the button shows locked
+        return;
+      }
+    }
+
+    const { sport, game, market, side, odds } = btn.dataset;
+    let oddsSnapshot = null;
+    if (odds) {
+      try { oddsSnapshot = JSON.parse(decodeURIComponent(odds)); } catch (e) { /* ignore malformed snapshot */ }
+    }
+    togglePick(sport, game, market, side, oddsSnapshot);
+    if (typeof onPick === 'function') onPick();
+  });
+}
+
+/*
+ * Gemini Prediction Summary block, shared across all three pages.
+ *
+ * Every game with a "gemini_prediction" field (attached by the Python
+ * builders when DK/FanDuel odds are posted) gets a collapsed toggle
+ * button showing the confidence score, which expands to the full
+ * winner / ATS / analysis panel. Uses click-delegation on whatever
+ * container the games were rendered into, same pattern as
+ * attachPickHandlers, so it survives re-renders without re-binding.
+ */
+
+// Tracks which games' Gemini panels are currently expanded, keyed by
+// "<sport>:<gameId>", so a periodic renderBoard() re-render (see the
+// setInterval in each page's init()) can restore the open/closed state
+// instead of always re-rendering every panel collapsed.
+const _openGeminiPanels = new Set();
+
+function renderGeminiBlock(g, sport) {
+  const p = g.gemini_prediction;
+  if (!p) return '';
+
+  const key = `${sport}:${g.id}`;
+  const isOpen = _openGeminiPanels.has(key);
+
+  const fmt = (v) => (v !== undefined && v !== null && v !== '') ? `${v}%` : '—';
+
+  // Main pick confidence
+  const conf = fmt(p.confidence);
+
+  // ATS confidence: use a dedicated field if your Python builder provides one,
+  // otherwise fall back to the main confidence so it's never blank.
+  const atsRaw = (p.ats_confidence !== undefined && p.ats_confidence !== null) ? p.ats_confidence
+               : (p.ats_conf       !== undefined && p.ats_conf       !== null) ? p.ats_conf
+               : p.confidence;
+  const atsConf = fmt(atsRaw);
+
+  const ouConf = fmt(p.total_confidence);
+
+  // Analysis / Over-Under / Splits: dedicated fields from newer cache
+  // entries, with a fallback that pulls each out of display_text for any
+  // older cached predictions that predate the split-out fields.
+  let analysis = p.analysis || '';
+  if (!analysis && p.display_text) {
+    const match = p.display_text.match(/Analysis:\s*([\s\S]*?)(?:\n\n|$)/i);
+    if (match) analysis = match[1].trim();
+  }
+  let ouAnalysis = p.ou_analysis || '';
+  if (!ouAnalysis && p.display_text) {
+    const match = p.display_text.match(/Over Under:\s*([\s\S]*?)(?:\n\n|$)/i);
+    if (match) ouAnalysis = match[1].trim();
+  }
+  let splits = p.splits_and_direction || '';
+  if (!splits && p.display_text) {
+    const match = p.display_text.match(/(?:Splits and Direction|Splits):\s*([\s\S]*)/i);
+    if (match) splits = match[1].trim();
+  }
+
+  // When the prediction was generated, shown right after the label so
+  // it's clear how fresh the pick is relative to the current odds.
+  let genAtStr = '';
+  if (p.generated_at) {
+    const genAt = new Date(p.generated_at);
+    if (!isNaN(genAt)) {
+      // Date and time are formatted separately and joined with a comma, so
+      // browsers that would otherwise insert "at" ("Oct 1 at 6:40 PM") don't.
+      const gDate = genAt.toLocaleDateString('en-US', { timeZone: DISPLAY_TZ, month: 'short', day: 'numeric' });
+      const gTime = genAt.toLocaleTimeString('en-US', { timeZone: DISPLAY_TZ, hour: 'numeric', minute: '2-digit', timeZoneName: 'short' });
+      genAtStr = `${gDate}, ${gTime}`;
+    }
+  }
+
+  return `<button type="button" class="gemini-toggle${isOpen ? ' open' : ''}" aria-expanded="${isOpen}" data-gemini-key="${key}">
+    <span class="gemini-toggle-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg></span>
+    <span class="gemini-toggle-main">Gemini Prediction Summary${genAtStr ? ` (${genAtStr})` : ''}</span>
+    <span class="gemini-toggle-trailing">
+      <span class="gemini-picks-summary">
+        <span class="gemini-toggle-winner"><span class="gemini-pick-spacer"></span><span class="gemini-pick-label">ML (${conf}):</span><span class="gemini-pick-team">${p.winner || 'TBD'}</span></span>
+        ${p.ats_pick ? `<span class="gemini-toggle-ats"><span class="gemini-pick-spacer"></span><span class="gemini-pick-label">ATS (${atsConf}):</span><span class="gemini-pick-team">${p.ats_pick}</span></span>` : ''}
+        ${p.total_pick ? `<span class="gemini-toggle-ou"><span class="gemini-pick-spacer"></span><span class="gemini-pick-label">O/U (${ouConf}):</span><span class="gemini-pick-team">${p.total_pick}</span></span>` : ''}
+      </span>
+      <span class="gemini-caret"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></span>
+    </span>
+  </button>
+  <div class="gemini-panel"${isOpen ? '' : ' hidden'}>
+    <div class="gemini-panel-row"><span>Winner</span> <span class="gemini-value">${p.winner || '—'}</span></div>
+    ${p.ats_pick ? `<div class="gemini-panel-row"><span>ATS</span> <span class="gemini-value">${p.ats_pick}</span></div>` : ''}
+    ${p.total_pick ? `<div class="gemini-panel-row"><span>O/U</span> <span class="gemini-value">${p.total_pick}</span></div>` : ''}
+    <div class="gemini-panel-row"><span>ML Confidence</span> <span class="gemini-value">${conf}</span></div>
+    ${p.ats_pick ? `<div class="gemini-panel-row"><span>ATS Confidence</span> <span class="gemini-value">${atsConf}</span></div>` : ''}
+    ${p.total_pick ? `<div class="gemini-panel-row"><span>O/U Confidence</span> <span class="gemini-value">${ouConf}</span></div>` : ''}
+    <p class="gemini-analysis"><strong>Analysis:</strong> ${analysis}</p>
+    ${ouAnalysis ? `<p class="gemini-analysis"><strong>Over Under:</strong> ${ouAnalysis}</p>` : ''}
+    ${splits ? `<p class="gemini-analysis"><strong>Splits:</strong> ${splits}</p>` : ''}
+  </div>`;
+}
+
+function attachGeminiHandlers(containerEl) {
+  containerEl.addEventListener('click', (e) => {
+    const btn = e.target.closest('.gemini-toggle');
+    if (!btn || !containerEl.contains(btn)) return;
+    const panel = btn.nextElementSibling;
+    if (!panel || !panel.classList.contains('gemini-panel')) return;
+    const isOpen = !panel.hidden;
+    panel.hidden = isOpen;
+    btn.classList.toggle('open', !isOpen);
+    btn.setAttribute('aria-expanded', String(!isOpen));
+    const key = btn.dataset.geminiKey;
+    if (key) {
+      if (isOpen) _openGeminiPanels.delete(key);
+      else _openGeminiPanels.add(key);
+    }
+  });
+}
+
+/*
+ * Tiles / Rows view toggle, shared across all three pages.
+ *
+ * If the person has never picked a mode, it auto-picks Rows on wider
+ * (desktop-ish) screens and Tiles on narrow (mobile) screens. Once they
+ * click a toggle button, that explicit choice is remembered in
+ * localStorage and wins from then on, on every page, until they change it
+ * again or clear site data.
+ */
+
+const VIEW_MODE_KEY = 'fb_view_mode';
+const VIEW_MODE_DESKTOP_BREAKPOINT = '(min-width: 860px)';
+
+function getStoredViewMode() {
+  const stored = localStorage.getItem(VIEW_MODE_KEY);
+  return (stored === 'tiles' || stored === 'rows') ? stored : null;
+}
+
+function getEffectiveViewMode() {
+  const stored = getStoredViewMode();
+  if (stored) return stored;
+  return window.matchMedia(VIEW_MODE_DESKTOP_BREAKPOINT).matches ? 'rows' : 'tiles';
+}
+
+let rowsForcedOff = false;
+
+function applyViewMode(mode) {
+  const shown = rowsForcedOff ? 'tiles' : mode;
+  document.body.classList.toggle('row-view', shown === 'rows');
+  document.body.classList.toggle('rows-unavailable', rowsForcedOff);
+  document.querySelectorAll('.view-toggle .view-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.mode === shown);
+    if (btn.dataset.mode === 'rows') {
+      btn.disabled = rowsForcedOff;
+      btn.title = rowsForcedOff ? 'Rows view needs a wider screen' : '';
+    }
+  });
+}
+
+function setViewMode(mode) {
+  if (rowsForcedOff && mode === 'rows') return;
+  localStorage.setItem(VIEW_MODE_KEY, mode);
+  applyViewMode(mode);
+}
+
+/*
+ * Rows view puts a whole game (teams, odds, Gemini summary) on one line.
+ * When the current screen width can't fit that without anything wrapping or
+ * scrolling sideways, Rows is switched off: the page shows Tiles and the
+ * Rows button is disabled. The stored Tiles/Rows choice is left alone, so
+ * Rows comes back by itself once the window is wide enough again.
+ */
+function rowsViewFits() {
+  if (window.innerWidth <= 900) return false;
+  const body = document.body;
+  const had = body.classList.contains('row-view');
+  if (!had) body.classList.add('row-view');
+  let fits = true;
+  // "Same line" = every element's vertical span overlaps the first one's, so a
+  // taller logo or a two-line name next to a one-line name isn't mistaken for a
+  // wrap; a wrapped item sits entirely below the others.
+  const sameLine = els => {
+    const rs = els.filter(e => e && e.offsetParent !== null).map(e => e.getBoundingClientRect());
+    if (rs.length < 2) return true;
+    const first = rs[0];
+    return rs.every(r => r.top < first.bottom - 2 && r.bottom > first.top + 2);
+  };
+  const cards = document.querySelectorAll('.card');
+  for (const c of cards) {
+    if (c.offsetParent === null) continue;
+    if (c.scrollWidth > c.clientWidth + 1) { fits = false; break; }
+    if (!sameLine([...c.querySelectorAll('.matchup .team')])) { fits = false; break; }
+    const tg = c.querySelector('.gemini-toggle');
+    if (tg) {
+      const kids = [...tg.children, ...tg.querySelectorAll('.gemini-picks-summary > *, .gemini-toggle-trailing > *')];
+      const labels = kids.filter(k => k.offsetParent !== null && getComputedStyle(k).display !== 'contents');
+      if (!sameLine(labels)) { fits = false; break; }
+    }
+  }
+  if (!had) body.classList.remove('row-view');
+  return fits;
+}
+
+function refreshRowsFit() {
+  const forced = !rowsViewFits();
+  if (forced !== rowsForcedOff) {
+    rowsForcedOff = forced;
+    applyViewMode(getEffectiveViewMode());
+  }
+}
+
+// Call once per page, after the nav (with its .view-toggle buttons) is in
+// the DOM. Doesn't depend on board data having loaded.
+function initViewToggle() {
+  applyViewMode(getEffectiveViewMode());
+  document.querySelectorAll('.view-toggle .view-btn').forEach(btn => {
+    btn.addEventListener('click', () => setViewMode(btn.dataset.mode));
+  });
+  // If the person never explicitly chose a mode, keep following the
+  // desktop/mobile default as the window is resized.
+  window.matchMedia(VIEW_MODE_DESKTOP_BREAKPOINT).addEventListener('change', () => {
+    if (!getStoredViewMode()) applyViewMode(getEffectiveViewMode());
+  });
+  // Re-check whether Rows fits on resize, after the board (re)renders, and
+  // once web fonts and logos have loaded and changed text widths.
+  let t = null;
+  const schedule = () => { clearTimeout(t); t = setTimeout(refreshRowsFit, 120); };
+  window.addEventListener('resize', schedule);
+  window.addEventListener('load', schedule);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(schedule);
+  new MutationObserver(schedule).observe(document.body, { childList: true, subtree: true });
+  schedule();
+}
+
+/*
+ * Dark / light theme toggle, shared across every page.
+ *
+ * If the person has never explicitly picked a theme here, the site
+ * follows the OS/browser-level color-scheme preference (the same signal
+ * iOS, Android, and desktop browsers/OSes expose for "light" vs "dark"
+ * appearance, and that a user sets once in their system settings) via the
+ * `prefers-color-scheme` media query, and keeps following it live if they
+ * flip that system setting while the page is open. The moment they tap a
+ * sun/moon button here, that explicit choice is saved in localStorage and
+ * wins on every page from then on, exactly like the Tiles/Rows toggle,
+ * until they change it again or clear site data.
+ */
+
+const THEME_KEY = 'fb_theme';
+const THEME_DARK_QUERY = '(prefers-color-scheme: dark)';
+
+function getStoredTheme() {
+  const stored = localStorage.getItem(THEME_KEY);
+  return (stored === 'dark' || stored === 'light') ? stored : null;
+}
+
+function getEffectiveTheme() {
+  const stored = getStoredTheme();
+  if (stored) return stored;
+  // No explicit choice yet -- match the device/browser's own light/dark
+  // setting. Defaults to dark if the environment doesn't expose a
+  // preference at all (matches this site's original look).
+  return window.matchMedia(THEME_DARK_QUERY).matches ? 'dark' : 'light';
+}
+
+function applyTheme(theme) {
+  document.body.classList.toggle('light-theme', theme === 'light');
+  document.querySelectorAll('.theme-toggle .theme-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.theme === theme);
+  });
+}
+
+function setTheme(theme) {
+  localStorage.setItem(THEME_KEY, theme);
+  applyTheme(theme);
+}
+
+// Call once per page, after the nav (with its .theme-toggle buttons) is in
+// the DOM.
+function initThemeToggle() {
+  applyTheme(getEffectiveTheme());
+  document.querySelectorAll('.theme-toggle .theme-btn').forEach(btn => {
+    btn.addEventListener('click', () => setTheme(btn.dataset.theme));
+  });
+  // If the person never explicitly chose a theme on this device, keep
+  // following the system light/dark setting live (e.g. iOS/Android auto
+  // dark mode kicking in at sunset, or a desktop OS-level toggle).
+  window.matchMedia(THEME_DARK_QUERY).addEventListener('change', () => {
+    if (!getStoredTheme()) applyTheme(getEffectiveTheme());
+  });
+}
+
+/*
+ * Board filters (Best Matchup Only / Min Conf / ML-ATS) -- shared by
+ * index.html and nfl.html. Not used on picks.html, which shows every pick
+ * ever made rather than the current board.
+ *
+ * Three controls, all optional and combinable:
+ * - "Best Matchup Only": keep only each slot's is_slot_pick game.
+ * - "Min Conf": keep only games whose Gemini confidence is at least this
+ *   number, in steps of 5 (0 = off / no games excluded on this basis).
+ * - ML / ATS: which Gemini confidence field "Min Conf" reads --
+ *   moneyline/straight-up confidence, or the ATS pick's confidence (a game
+ *   with no posted ATS pick fails this filter, since there's nothing to
+ *   compare against).
+ *
+ * The chosen state persists in localStorage per device, same pattern as
+ * the Tiles/Rows view toggle below.
+ */
+
+const FILTER_STATE_KEY = 'fb_filter_state';
+
+function getFilterState() {
+  let stored = null;
+  try {
+    stored = JSON.parse(localStorage.getItem(FILTER_STATE_KEY));
+  } catch (e) { /* ignore malformed value */ }
+  return {
+    bestMatchupOnly: !!(stored && stored.bestMatchupOnly),
+    minConf: (stored && Number.isInteger(stored.minConf)) ? stored.minConf : 0,
+    // 'both' is the internal value for the "All" pill (kept as-is so old
+    // localStorage/filter-state values don't get invalidated) -- 'ou' is
+    // the Over/Under confidence-type option, alongside 'ml'/'ats'.
+    confType: (stored && (stored.confType === 'ats' || stored.confType === 'ml' || stored.confType === 'ou' || stored.confType === 'both'))
+      ? stored.confType : 'both',
+  };
+}
+
+function saveFilterState(state) {
+  localStorage.setItem(FILTER_STATE_KEY, JSON.stringify(state));
+}
+
+// Gemini-confidence-based filter -- used on index.html/nfl.html/mlb.html,
+// where the ML/ATS/All toggle filters by GEMINI'S prediction confidence
+// for that market. A game only needs the SELECTED market's data to
+// qualify (an ML-only prediction still passes an ML filter even with no
+// ATS pick at all, and vice versa) -- it does NOT require both markets
+// to be present. 'all' passes a game if EITHER market clears the
+// threshold, so picking "All" with a confidence floor set still shows
+// every game with at least one strong pick, not just games with both.
+function gamePassesFilters(g, state) {
+  if (state.bestMatchupOnly && !g.is_slot_pick) return false;
+  if (state.minConf > 0) {
+    const pred = g.gemini_prediction;
+    if (!pred) return false;
+    if (state.confType === 'ats') {
+      if (!pred.ats_pick) return false;
+      if ((pred.ats_confidence ?? 0) < state.minConf) return false;
+    } else if (state.confType === 'ml') {
+      if ((pred.confidence ?? 0) < state.minConf) return false;
+    } else if (state.confType === 'ou') {
+      if (!pred.total_pick) return false;
+      if ((pred.total_confidence ?? 0) < state.minConf) return false;
+    } else {
+      // 'all' -- pass if ANY of the three markets meets the threshold
+      const mlOk = (pred.confidence ?? 0) >= state.minConf;
+      const atsOk = pred.ats_pick && (pred.ats_confidence ?? 0) >= state.minConf;
+      const ouOk = pred.total_pick && (pred.total_confidence ?? 0) >= state.minConf;
+      if (!mlOk && !atsOk && !ouOk) return false;
+    }
+  }
+  return true;
+}
+
+// Pick-market-based filter -- used on picks.html instead of
+// gamePassesFilters() above, since the Picks page's ML/ATS/O-U/All toggle
+// filters by which market YOUR OWN PICK was made on (not by Gemini's
+// prediction confidence for the game in general -- Gemini might not have
+// even picked the same side you did). The confidence floor, when set,
+// still checks Gemini's confidence for whichever market you actually
+// picked, so "ATS, 80+" shows only your spread picks where Gemini was
+// also at least 80% confident on its own ATS pick for that game.
+function pickPassesMarketFilter(sport, g, state) {
+  const mainPick = getMainPick(sport, g.id);
+  const totalPick = getTotalPick(sport, g.id);
+
+  if (state.confType === 'ats') {
+    return !!mainPick && mainPick.market === 'spread' && _pickClearsConfidence(g, mainPick, state);
+  }
+  if (state.confType === 'ml') {
+    return !!mainPick && mainPick.market === 'moneyline' && _pickClearsConfidence(g, mainPick, state);
+  }
+  if (state.confType === 'ou') {
+    return !!totalPick && _pickClearsConfidence(g, totalPick, state);
+  }
+
+  // 'both' / All -- a game can have a main pick, a total pick, or both
+  // (see togglePick) -- passes if EITHER exists, and (when a confidence
+  // floor is set) at least one of them clears it.
+  const candidates = [mainPick, totalPick].filter(Boolean);
+  if (!candidates.length) return false;
+  if (state.minConf <= 0) return true;
+  return candidates.some(p => _pickClearsConfidence(g, p, state));
+}
+
+// Whether Gemini's own confidence for the market `pick` belongs to (ML
+// confidence for a moneyline pick, ATS confidence for a spread pick, O/U
+// confidence for a total pick) clears state.minConf. Shared by every
+// branch of pickPassesMarketFilter() above.
+function _pickClearsConfidence(g, pick, state) {
+  if (state.minConf <= 0) return true;
+  const pred = g.gemini_prediction;
+  if (!pred) return false;
+  const relevantConf = pick.market === 'spread' ? pred.ats_confidence
+    : pick.market === 'total' ? pred.total_confidence
+    : pred.confidence;
+  if (pick.market === 'spread' && !pred.ats_pick) return false;
+  if (pick.market === 'total' && !pred.total_pick) return false;
+  return (relevantConf ?? 0) >= state.minConf;
+}
+
+// Returns a filtered copy of `weeks` -- games that don't pass, then any
+// slot/day left with zero games, are dropped, with game_count/total_games
+// recomputed at each level. Passing the same `weeks` array back out
+// unfiltered (no clone) when no filter is active avoids needless work on
+// every render.
+function filterWeeksForDisplay(weeks, state) {
+  if (!state.bestMatchupOnly && state.minConf <= 0) return weeks;
+  return weeks.map(week => {
+    const days = week.days
+      .map(day => {
+        const time_slots = day.time_slots
+          .map(slot => ({ ...slot, games: slot.games.filter(g => gamePassesFilters(g, state)) }))
+          .filter(slot => slot.games.length);
+        const game_count = time_slots.reduce((n, s) => n + s.games.length, 0);
+        return { ...day, time_slots, game_count };
+      })
+      .filter(day => day.time_slots.length);
+    const total_games = days.reduce((n, d) => n + d.game_count, 0);
+    return { ...week, days, total_games, _filtered: true };
+  });
+}
+
+// Same shape/behavior as filterWeeksForDisplay() above, but for
+// picks.html specifically -- uses pickPassesMarketFilter() (filters by
+// which market YOUR pick was made on) instead of gamePassesFilters()
+// (which filters by Gemini's own prediction confidence, used on the
+// other three pages).
+function applyMarketFilterToWeeks(weeks, sport, state) {
+  if (!state.bestMatchupOnly && state.minConf <= 0 && state.confType === 'both') return weeks;
+  return weeks.map(week => {
+    const days = week.days
+      .map(day => {
+        const time_slots = day.time_slots
+          .map(slot => ({
+            ...slot,
+            games: slot.games.filter(g => {
+              if (state.bestMatchupOnly && !g.is_slot_pick) return false;
+              return pickPassesMarketFilter(sport, g, state);
+            }),
+          }))
+          .filter(slot => slot.games.length);
+        const game_count = time_slots.reduce((n, s) => n + s.games.length, 0);
+        return { ...day, time_slots, game_count };
+      })
+      .filter(day => day.time_slots.length);
+    const total_games = days.reduce((n, d) => n + d.game_count, 0);
+    return { ...week, days, total_games, _filtered: true };
+  });
+}
+
+
+// Gemini's own `ats_pick` field is meant to be exactly one of the two
+// team names, but an earlier prompt version showed Gemini an example
+// with the line attached ("Team B +3.5"), and predictions are cached by
+// a hash of the matchup/odds/model (see gemini_predictions.py) so some
+// already-stored predictions can still have a trailing "+3.5"/"-3.5"
+// baked in even now that the prompt no longer shows that shape. A strict
+// `pred.ats_pick === coveringTeam` check fails on every single one of
+// those (the team name plus a number never equals the bare team name),
+// which is what was driving ATS accuracy to 0% -- so the line suffix is
+// stripped before comparing, rather than requiring an exact match
+// against whatever raw string Gemini happened to return.
+function _normalizeAtsPick(pick) {
+  if (!pick) return pick;
+  return pick.replace(/\s*[+-]\d+(\.\d+)?\s*$/, '').trim();
+}
+
+// Gemini's own prediction accuracy (NOT your picks) across every GRADED
+// game in `datasets` -- ML: did Gemini's picked winner actually win?
+// ATS: did Gemini's picked side actually cover, using whichever spread
+// line is currently attached to the game (DraftKings, else FanDuel;
+// there's no separate "line at prediction time" stored for Gemini's own
+// pick the way there is for a user pick, so this uses today's line same
+// as everything else). A push (exact margin) doesn't count toward
+// either total -- it's not a right-or-wrong result for Gemini's pick.
+function _finalScore(gScore) {
+  if (!gScore || gScore.status !== 'final') return null;
+  if (gScore.home_score === null || gScore.home_score === undefined) return null;
+  if (gScore.away_score === null || gScore.away_score === undefined) return null;
+  return { home: gScore.home_score, away: gScore.away_score };
+}
+
+// Today's live total (Over/Under) line for a game -- DraftKings first,
+// FanDuel fallback, same book-preference order used everywhere else on
+// the board. Over and Under share the identical line number, so either
+// side's `line` field (whichever is posted) works.
+function _currentTotalLine(g) {
+  const dkTotal = g.odds && g.odds.draftkings && g.odds.draftkings.total;
+  const fdTotal = g.odds && g.odds.fanduel && g.odds.fanduel.total;
+  const dkLine = dkTotal && (dkTotal.over || dkTotal.under)
+    ? (dkTotal.over ? dkTotal.over.line : dkTotal.under.line) : null;
+  const fdLine = fdTotal && (fdTotal.over || fdTotal.under)
+    ? (fdTotal.over ? fdTotal.over.line : fdTotal.under.line) : null;
+  return (dkLine !== null && dkLine !== undefined) ? dkLine : fdLine;
+}
+
+// Today's live odds entry ({line, american}) for one side ("over"/"under")
+// of the total market -- DraftKings first, FanDuel fallback.
+function _totalOddsEntry(g, side) {
+  const dk = g.odds && g.odds.draftkings && g.odds.draftkings.total && g.odds.draftkings.total[side];
+  const fd = g.odds && g.odds.fanduel && g.odds.fanduel.total && g.odds.fanduel.total[side];
+  return dk || fd || null;
+}
+
+// Same idea as filterWeeksForDisplay, but ONLY applies bestMatchupOnly --
+// never minConf. Used by the accuracy.html all-time aggregations
+// (computeGeminiAccuracyAllTime / computeGeminiMoneyRecordAllTime) instead
+// of filterWeeksForDisplay, because confidence needs to be checked
+// independently per market (ML confidence for the ML total, ATS
+// confidence for the ATS total) rather than as a single either-market
+// gate on which games are even considered -- see computeGeminiAccuracy's
+// comment for why the either-market gate was inflating counts.
+function filterWeeksByBestMatchupOnly(weeks, state) {
+  if (!state || !state.bestMatchupOnly) return weeks;
+  return weeks.map(week => {
+    const days = week.days
+      .map(day => {
+        const time_slots = day.time_slots
+          .map(slot => ({ ...slot, games: slot.games.filter(g => g.is_slot_pick) }))
+          .filter(slot => slot.games.length);
+        const game_count = time_slots.reduce((n, s) => n + s.games.length, 0);
+        return { ...day, time_slots, game_count };
+      })
+      .filter(day => day.time_slots.length);
+    const total_games = days.reduce((n, d) => n + d.game_count, 0);
+    return { ...week, days, total_games, _filtered: true };
+  });
+}
+
+// Gemini's own prediction accuracy (NOT your picks) across every GRADED
+// game in `datasets` -- ML: did Gemini's picked winner actually win?
+// ATS: did Gemini's picked side actually cover, using whichever spread
+// line is currently attached to the game (DraftKings, else FanDuel;
+// there's no separate "line at prediction time" stored for Gemini's own
+// pick the way there is for a user pick, so this uses today's line same
+// as everything else). A push (exact margin) doesn't count toward
+// either total -- it's not a right-or-wrong result for Gemini's pick.
+//
+// minConf, when > 0, gates ML and ATS COMPLETELY INDEPENDENTLY of each
+// other: a game only counts toward mlTotal if Gemini's OWN ml confidence
+// clears the bar, and only counts toward atsTotal if its OWN ats
+// confidence clears the bar -- regardless of what the page's Both/ML/ATS
+// toggle is set to. That toggle only controls which of these two
+// (already-independently-computed) numbers gets displayed vs shown as
+// NA; it never changes the numbers themselves. (Previously this was
+// implemented as a single either-market gate applied before counting --
+// under "Both" that let a game with only a high ML confidence sneak an
+// under-the-bar ATS pick into atsTotal, which is why switching to "ATS"
+// alone could show a smaller total than "Both" did. That's fixed by
+// gating here, per market, instead.)
+function computeGeminiAccuracy(datasets, scores, minConf) {
+  let mlTotal = 0, mlCorrect = 0, atsTotal = 0, atsCorrect = 0, ouTotal = 0, ouCorrect = 0;
+  // Distinct games (not predictions) that have SOME Gemini prediction
+  // but haven't finished yet -- one count per game, even if it has both
+  // a winner pick and an ATS pick still pending.
+  const ungradedGameIds = new Set();
+  const conf = minConf || 0;
+  (datasets || []).forEach(({ sport, data }) => {
+    if (!data) return;
+    (data.weeks || []).forEach(week => (week.days || []).forEach(day => (day.time_slots || []).forEach(slot => {
+      (slot.games || []).forEach(g => {
+        const pred = g.gemini_prediction;
+        if (!pred) return;
+
+        const mlEligible = !!pred.winner && (pred.confidence ?? 0) >= conf;
+        const atsEligible = !!pred.ats_pick && (pred.ats_confidence ?? 0) >= conf;
+        const ouEligible = !!pred.total_pick && (pred.total_confidence ?? 0) >= conf;
+        if (!mlEligible && !atsEligible && !ouEligible) return;
+
+        const gScore = (scores[sport] || {})[String(g.id)];
+        const final = _finalScore(gScore);
+        if (!final) {
+          if (mlEligible || atsEligible || ouEligible) ungradedGameIds.add(`${sport}:${g.id}`);
+          return;
+        }
+
+        if (mlEligible) {
+          const actualWinner = final.home > final.away ? g.home_team
+                              : final.away > final.home ? g.away_team
+                              : null;
+          if (actualWinner) {
+            mlTotal++;
+            if (pred.winner === actualWinner) mlCorrect++;
+          }
+        }
+
+        if (atsEligible) {
+          const dkLine = g.odds && g.odds.draftkings && g.odds.draftkings.spread && g.odds.draftkings.spread.home
+            ? g.odds.draftkings.spread.home.line : null;
+          const fdLine = g.odds && g.odds.fanduel && g.odds.fanduel.spread && g.odds.fanduel.spread.home
+            ? g.odds.fanduel.spread.home.line : null;
+          const homeLine = (dkLine !== null && dkLine !== undefined) ? dkLine : fdLine;
+          if (homeLine !== null && homeLine !== undefined) {
+            const margin = (final.home - final.away) + homeLine;
+            if (margin !== 0) {
+              const coveringTeam = margin > 0 ? g.home_team : g.away_team;
+              atsTotal++;
+              if (_normalizeAtsPick(pred.ats_pick) === coveringTeam) atsCorrect++;
+            }
+          }
+        }
+
+        if (ouEligible) {
+          const line = _currentTotalLine(g);
+          if (line !== null && line !== undefined) {
+            const combined = final.home + final.away;
+            if (combined !== line) {
+              const actualResult = combined > line ? 'Over' : 'Under';
+              ouTotal++;
+              if (pred.total_pick === actualResult) ouCorrect++;
+            }
+          }
+        }
+      });
+    })));
+  });
+  return {
+    mlPct: mlTotal ? Math.round((mlCorrect / mlTotal) * 100) : null,
+    atsPct: atsTotal ? Math.round((atsCorrect / atsTotal) * 100) : null,
+    ouPct: ouTotal ? Math.round((ouCorrect / ouTotal) * 100) : null,
+    // Raw counts, in addition to the rounded percentages above -- added
+    // for accuracy.html's all-time breakdown (which wants to show
+    // "89/142" alongside "63%"), but harmless for existing callers
+    // (picks.html) which only read the *Pct fields.
+    mlTotal, mlCorrect, atsTotal, atsCorrect, ouTotal, ouCorrect,
+    ungraded: ungradedGameIds.size,
+  };
+}
+
+// Same computation as computeGeminiAccuracy(), but first drops any game
+// that doesn't pass gamePassesFilters(g, filterState) -- i.e. Gemini's
+// OWN prediction confidence / best-matchup-slot status, not anything to
+// do with a user's picks. This is what accuracy.html uses to answer
+// "how accurate has Gemini been on every {ML/ATS/Both} prediction it's
+// ever made, optionally restricted to {65+}% confidence and/or each
+// slot's single best matchup" -- across the full history in each
+// dashboard's `weeks` array, not just the current board.
+function computeGeminiAccuracyAllTime(datasets, scores, filterState) {
+  const filtered = (datasets || []).map(({ sport, data }) => ({
+    sport,
+    data: data ? { ...data, weeks: filterWeeksByBestMatchupOnly(data.weeks || [], filterState) } : data,
+  }));
+  return computeGeminiAccuracy(filtered, scores, filterState && filterState.minConf);
+}
+
+// Hypothetical "if you'd flat-bet $10 on every Gemini pick" net across all
+// history -- the Gemini-side counterpart to computeMoneyRecordAllTime
+// (which does the same math for the user's own actual picks). This DOES
+// honor bestMatchupOnly and minConf, same as computeGeminiAccuracy --
+// minConf gates ML and ATS independently by each market's OWN confidence,
+// never by an either-market gate (see computeGeminiAccuracy's comment for
+// why). wantMl/wantAts (from the page's Both/ML/ATS toggle) control which
+// market's dollars get summed into `net` -- that's a legitimate "which
+// column is this money for" selection, not a filter on which games
+// qualify. There's no locked-in price the way a real user pick has, so
+// (same as computeGeminiAccuracy) this always prices off whatever odds
+// are currently attached to the game -- DraftKings first, FanDuel
+// fallback. A push (spread) or a tie (moneyline) contributes neither a
+// win nor a loss, matching how those are excluded from the accuracy
+// totals too.
+function computeGeminiMoneyRecordAllTime(datasets, scores, filterState) {
+  const filtered = (datasets || []).map(({ sport, data }) => ({
+    sport,
+    data: data ? { ...data, weeks: filterWeeksByBestMatchupOnly(data.weeks || [], filterState) } : data,
+  }));
+  const wantMl = !filterState || filterState.confType === 'both' || filterState.confType === 'ml';
+  const wantAts = !filterState || filterState.confType === 'both' || filterState.confType === 'ats';
+  const wantOu = !filterState || filterState.confType === 'both' || filterState.confType === 'ou';
+  const conf = (filterState && filterState.minConf) || 0;
+
+  let net = 0, graded = 0;
+  (filtered || []).forEach(({ sport, data }) => {
+    if (!data) return;
+    (data.weeks || []).forEach(week => (week.days || []).forEach(day => (day.time_slots || []).forEach(slot => {
+      (slot.games || []).forEach(g => {
+        const pred = g.gemini_prediction;
+        if (!pred) return;
+        const gScore = (scores[sport] || {})[String(g.id)];
+        const final = _finalScore(gScore);
+        if (!final) return; // not graded yet -- no $ counted either direction
+
+        if (wantMl && pred.winner && (pred.confidence ?? 0) >= conf) {
+          const actualWinner = final.home > final.away ? g.home_team
+                              : final.away > final.home ? g.away_team
+                              : null;
+          if (actualWinner) {
+            const side = pred.winner === g.home_team ? 'home' : (pred.winner === g.away_team ? 'away' : null);
+            const entry = side && (g.odds?.draftkings?.moneyline?.[side] || g.odds?.fanduel?.moneyline?.[side]);
+            const american = entry ? entry.american : null;
+            if (american !== null && american !== undefined) {
+              if (pred.winner === actualWinner) net += (calcPayout(american, 10) || 0);
+              else net -= 10;
+              graded++;
+            }
+          }
+        }
+
+        if (wantAts && pred.ats_pick && (pred.ats_confidence ?? 0) >= conf) {
+          const dkLine = g.odds?.draftkings?.spread?.home?.line;
+          const fdLine = g.odds?.fanduel?.spread?.home?.line;
+          const homeLine = (dkLine !== null && dkLine !== undefined) ? dkLine : fdLine;
+          if (homeLine !== null && homeLine !== undefined) {
+            const margin = (final.home - final.away) + homeLine;
+            if (margin !== 0) {
+              const coveringTeam = margin > 0 ? g.home_team : g.away_team;
+              const normPick = _normalizeAtsPick(pred.ats_pick);
+              const side = normPick === g.home_team ? 'home' : (normPick === g.away_team ? 'away' : null);
+              const entry = side && (g.odds?.draftkings?.spread?.[side] || g.odds?.fanduel?.spread?.[side]);
+              const american = entry ? entry.american : null;
+              if (american !== null && american !== undefined) {
+                if (normPick === coveringTeam) net += (calcPayout(american, 10) || 0);
+                else net -= 10;
+                graded++;
+              }
+            }
+          }
+        }
+
+        if (wantOu && pred.total_pick && (pred.total_confidence ?? 0) >= conf) {
+          const line = _currentTotalLine(g);
+          if (line !== null && line !== undefined) {
+            const combined = final.home + final.away;
+            if (combined !== line) {
+              const actualResult = combined > line ? 'Over' : 'Under';
+              const side = pred.total_pick === 'Over' ? 'over' : 'under';
+              const entry = _totalOddsEntry(g, side);
+              const american = entry ? entry.american : null;
+              if (american !== null && american !== undefined) {
+                if (pred.total_pick === actualResult) net += (calcPayout(american, 10) || 0);
+                else net -= 10;
+                graded++;
+              }
+            }
+          }
+        }
+      });
+    })));
+  });
+
+  return { net: Math.round(net * 100) / 100, graded };
+}
+
+// Grades the user's OWN saved picks (cookie-based, via getMainPick()/
+// getTotalPick()) against
+// final scores, across the full all-time history in every dataset's
+// `weeks` array -- accuracy.html's "My Accuracy" pill/table, and (via the
+// weekly-windowed dataset it's called with) picks.html's own My Accuracy
+// circle. Gemini's OWN confidence score never gates this (a pick you made
+// is graded the same whether or not Gemini happened to be confident about
+// that game) -- only bestMatchupOnly and the market selector apply. The
+// market selector picks by the PICK's own market ('moneyline' for ml,
+// 'spread' for ats), not by anything on the Gemini prediction. Uses
+// _myPickResult(), which only counts a game once it's truly final (not
+// live/in-progress) -- see that function for why. "Ungraded" is every
+// pick made on a game that isn't final yet -- not counted toward the
+// percentage, shown separately.
+function computeMyAccuracyAllTime(datasets, scores, filterState) {
+  let correct = 0, total = 0, ungraded = 0;
+  const wantMarket = filterState && filterState.confType === 'ml' ? 'moneyline'
+    : filterState && filterState.confType === 'ats' ? 'spread'
+    : filterState && filterState.confType === 'ou' ? 'total'
+    : null; // null = all markets count
+
+  (datasets || []).forEach(({ sport, data }) => {
+    if (!data) return;
+    (data.weeks || []).forEach(week => (week.days || []).forEach(day => (day.time_slots || []).forEach(slot => {
+      (slot.games || []).forEach(g => {
+        if (filterState && filterState.bestMatchupOnly && !g.is_slot_pick) return;
+        // Always called with one specific market narrowed in (see the
+        // three separate calls on accuracy.html) -- total picks live in
+        // the separate "total" cookie slot, main (spread/moneyline)
+        // picks in the "main" slot.
+        const pick = wantMarket === 'total' ? getTotalPick(sport, g.id) : getMainPick(sport, g.id);
+        if (!pick) return;
+        if (wantMarket && pick.market !== wantMarket) return;
+
+        const gScore = (scores[sport] || {})[String(g.id)];
+        const outcome = _myPickResult(g, gScore, pick);
+        if (outcome === 'hit') { total++; correct++; }
+        else if (outcome === 'miss') { total++; }
+        else { ungraded++; }
+      });
+    })));
+  });
+
+  return {
+    pct: total ? Math.round((correct / total) * 100) : null,
+    correct, total, ungraded,
+  };
+}
+
+// Gemini's accuracy specifically on the games YOU picked -- not every
+// graded prediction Gemini's ever made (see computeGeminiAccuracyAllTime
+// for that, used on accuracy.html's main pills/tables). For each of your
+// own picks, this grades Gemini's call in THAT SAME market only (a
+// moneyline pick checks Gemini's winner pick; a spread pick checks
+// Gemini's ats_pick) -- so "Both" pools together "my ML picks graded
+// against Gemini's ML calls" + "my ATS picks graded against Gemini's ATS
+// calls", rather than grading every picked game on BOTH markets
+// regardless of which one was actually bet (which is what inflated this
+// number before -- e.g. 5 actual ML picks showing a much bigger ML total,
+// because every ATS-picked game was ALSO being graded as an ML
+// prediction). Uses the exact same final-only gate as
+// _myPickResult()/computeMyAccuracyAllTime, so this circle and "My
+// Accuracy" always cover the exact same set of games (modulo a picked
+// game that has no Gemini prediction attached at all, which can't be
+// graded here but still counts for My Accuracy).
+function computeGeminiAccuracyOnMyPicks(datasets, scores, filterState) {
+  let correct = 0, total = 0;
+  const wantMarket = filterState && filterState.confType === 'ml' ? 'moneyline'
+    : filterState && filterState.confType === 'ats' ? 'spread'
+    : filterState && filterState.confType === 'ou' ? 'total'
+    : null;
+
+  (datasets || []).forEach(({ sport, data }) => {
+    if (!data) return;
+    (data.weeks || []).forEach(week => (week.days || []).forEach(day => (day.time_slots || []).forEach(slot => {
+      (slot.games || []).forEach(g => {
+        if (filterState && filterState.bestMatchupOnly && !g.is_slot_pick) return;
+
+        // wantMarket narrows to a single slot when the page's filter is
+        // ML/ATS/O-U specifically; for "All" (wantMarket null, used by
+        // picks.html's own live toggle) both the main and total pick
+        // slots are checked, since a game can carry one of each at once.
+        const candidates = wantMarket === 'total' ? [getTotalPick(sport, g.id)]
+          : wantMarket ? [getMainPick(sport, g.id)]
+          : [getMainPick(sport, g.id), getTotalPick(sport, g.id)];
+
+        candidates.filter(Boolean).forEach(pick => {
+          if (wantMarket && pick.market !== wantMarket) return;
+          _gradeOnePickAgainstGemini(g, scores[sport], pick, (isCorrect) => {
+            total++;
+            if (isCorrect) correct++;
+          });
+        });
+      });
+    })));
+  });
+
+  return { pct: total ? Math.round((correct / total) * 100) : null, correct, total };
+}
+
+// Grades ONE saved pick against Gemini's own prediction in that same
+// market, calling `report(true|false)` once if (and only if) there's
+// something gradeable (game final, Gemini made a call in that market,
+// and -- for spread/total -- the actual result isn't an exact push).
+// Factored out of computeGeminiAccuracyOnMyPicks so it can be called once
+// per candidate pick (a game can have a main pick AND a total pick).
+function _gradeOnePickAgainstGemini(g, gScoreMap, pick, report) {
+  const gScore = (gScoreMap || {})[String(g.id)];
+  const final = _finalScore(gScore);
+  if (!final) return; // not final yet -- excluded, same as My Accuracy
+
+  const pred = g.gemini_prediction;
+  if (!pred) return;
+
+  if (pick.market === 'moneyline') {
+    if (!pred.winner) return;
+    const actualWinner = final.home > final.away ? g.home_team
+      : final.away > final.home ? g.away_team
+      : null;
+    if (!actualWinner) return;
+    report(pred.winner === actualWinner);
+  } else if (pick.market === 'spread') {
+    if (!pred.ats_pick) return;
+    const dkLine = g.odds && g.odds.draftkings && g.odds.draftkings.spread && g.odds.draftkings.spread.home
+      ? g.odds.draftkings.spread.home.line : null;
+    const fdLine = g.odds && g.odds.fanduel && g.odds.fanduel.spread && g.odds.fanduel.spread.home
+      ? g.odds.fanduel.spread.home.line : null;
+    const homeLine = (dkLine !== null && dkLine !== undefined) ? dkLine : fdLine;
+    if (homeLine === null || homeLine === undefined) return;
+    const margin = (final.home - final.away) + homeLine;
+    if (margin === 0) return; // push -- not a right/wrong result for Gemini's pick
+    const coveringTeam = margin > 0 ? g.home_team : g.away_team;
+    report(_normalizeAtsPick(pred.ats_pick) === coveringTeam);
+  } else if (pick.market === 'total') {
+    if (!pred.total_pick) return;
+    const line = _currentTotalLine(g);
+    if (line === null || line === undefined) return;
+    const combined = final.home + final.away;
+    if (combined === line) return; // push -- not a right/wrong result for Gemini's pick
+    const actualResult = combined > line ? 'Over' : 'Under';
+    report(pred.total_pick === actualResult);
+  }
+}
+
+// Single-percentage accuracy for the Picks page's Gemini-accuracy stat
+// circle -- Gemini's accuracy on just the games you picked (see
+// computeGeminiAccuracyOnMyPicks), in whichever market the filter bar has
+// selected. `sub` is 'ML'/'ATS'/'O/U'/'All' for the tag under the circle;
+// `correct`/`total` are the circle's second line ("x/x").
+function singleGeminiAccuracy(datasets, scores, filterState) {
+  const confType = filterState.confType;
+  const acc = computeGeminiAccuracyOnMyPicks(datasets, scores, filterState);
+  const sub = confType === 'ml' ? 'ML' : confType === 'ats' ? 'ATS' : confType === 'ou' ? 'O/U' : 'All';
+  return { pct: acc.pct, sub, correct: acc.correct, total: acc.total };
+}
+
+// Wednesday-through-Tuesday window containing `now` (defaults to right
+// now) -- the fixed weekly cadence the Picks page's 4 stat circles use,
+// so "this week" always means the same 7-day span regardless of which
+// sport's own week/day boundaries a game happens to fall under.
+function currentWedTueWindow(now) {
+  const ref = now || new Date();
+  const day = ref.getDay(); // 0=Sun...6=Sat
+  const daysSinceWednesday = (day - 3 + 7) % 7;
+  const start = new Date(ref.getFullYear(), ref.getMonth(), ref.getDate() - daysSinceWednesday, 0, 0, 0, 0);
+  const end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 6, 23, 59, 59, 999);
+  return { start, end };
+}
+
+// Restricts `weeks` (any dashboard's full weeks array) down to just the
+// games whose start_time falls inside [start, end] -- used to scope the
+// Picks page's 4 stat circles to the current Wed-Tue window without
+// touching the actual displayed pick list (which stays all-time/filtered
+// as before).
+function filterWeeksToDateWindow(weeks, start, end) {
+  return (weeks || []).map(week => ({
+    ...week,
+    days: (week.days || []).map(day => ({
+      ...day,
+      time_slots: (day.time_slots || []).map(slot => ({
+        ...slot,
+        games: (slot.games || []).filter(g => {
+          if (!g.start_time) return false;
+          const t = new Date(g.start_time);
+          return t >= start && t <= end;
+        }),
+      })),
+    })),
+  }));
+}
+
+// #minConfSelect, and .conf-type-btn controls) is in the DOM. `onChange`
+// re-renders the board using the new filter state.
+function initFilterBar(onChange) {
+  const state = getFilterState();
+
+  const bestMatchupEl = document.getElementById('bestMatchupOnly');
+  const minConfEl = document.getElementById('minConfSelect');
+  const confTypeBtns = document.querySelectorAll('.conf-type-btn');
+
+  if (bestMatchupEl) bestMatchupEl.classList.toggle('active', state.bestMatchupOnly);
+  if (minConfEl) minConfEl.value = String(state.minConf);
+  confTypeBtns.forEach(btn => btn.classList.toggle('active', btn.dataset.conftype === state.confType));
+
+  if (bestMatchupEl) {
+    bestMatchupEl.addEventListener('click', () => {
+      state.bestMatchupOnly = !state.bestMatchupOnly;
+      saveFilterState(state);
+      bestMatchupEl.classList.toggle('active', state.bestMatchupOnly);
+      onChange();
+    });
+  }
+  if (minConfEl) {
+    minConfEl.addEventListener('change', () => {
+      state.minConf = parseInt(minConfEl.value, 10) || 0;
+      saveFilterState(state);
+      onChange();
+    });
+  }
+  confTypeBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      state.confType = btn.dataset.conftype;
+      saveFilterState(state);
+      confTypeBtns.forEach(b => b.classList.toggle('active', b === btn));
+      onChange();
+    });
+  });
+}
+
+/*
+ * Live scores overlay -- shared by index.html / nfl.html / picks.html.
+ *
+ * data/scores.json is written hourly by scripts/fetch_scores.py, separate
+ * from the once-a-day dashboard builds, so scores can refresh far more
+ * often without hitting SharpAPI's/Gemini's tighter rate limits. It's
+ * shaped as {"cfb": {"<gameId>": {...}}, "nfl": {"<gameId>": {...}}} and
+ * simply merged in here at render time by game id -- games with no entry
+ * (not started yet) render exactly as before, with no score line.
+ */
+
+const SCORES_URL = 'https://raw.githubusercontent.com/mzaiger/SportsDashboard/main/data/scores.json';
+
+// Fetches data/scores.json and returns its `cfb` or `nfl` lookup (by game
+// id). Never throws -- if the file is missing or malformed (e.g. the
+// hourly workflow hasn't run yet), returns {} so the rest of the page
+// renders normally with no score lines.
+async function fetchScores(sport) {
+  try {
+    const res = await fetch(SCORES_URL, { cache: 'no-store' });
+    if (!res.ok) return {};
+    const data = await res.json();
+    return data[sport] || {};
+  } catch (e) {
+    return {};
+  }
+}
+
+// Returns the small score badge to place right next to a team's name in
+// the matchup title (an invisible placeholder if this game has no score yet). Colored green
+// once final, red while live (no color once the game hasn't started).
+function teamScoreBadge(score, status) {
+  // No score yet -> keep an invisible badge of the same size so the layout
+  // doesn't shift when the score shows up.
+  if (score === null || score === undefined) return ' <span class="team-score score-empty" aria-hidden="true">00</span>';
+  const cls = status === 'final' ? 'final' : status === 'in_progress' ? 'live' : '';
+  return ` <span class="team-score ${cls}">${score}</span>`;
+}
+
+// Returns the "LIVE · Q3 08:42" line to place under the matchup title
+// while a game is in progress, or '' once it's final (or hasn't started).
+function renderLiveStatusLine(scoreEntry) {
+  if (!scoreEntry || scoreEntry.status !== 'in_progress') return '';
+  return `<div class="score-status-line"><span class="live-dot"></span>Live${scoreEntry.status_detail ? ' \u2013 ' + scoreEntry.status_detail : ''}</div>`;
+}
+
+window.PS={DISPLAY_TZ,renderPickToolbar,pickCellClass,oddsHitClass,renderGeminiBlock,attachPickHandlers,attachGeminiHandlers,fetchScores,teamScoreBadge,renderLiveStatusLine,matchupLabel,formatChannelForPill,hasAnyPick};
+})();
