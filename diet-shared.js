@@ -393,5 +393,17 @@ function latestDataDate(items, fields){
 const FROZEN_DATA_DATE_FIELDS = ['RunDate', '_calorie_max_checked_at', '_gemini_checked_at', '_kroger_discovered_at'];
 const FAST_DATA_DATE_FIELDS = ['_added_at', '_updated_at'];
 
-window.DS={deliveryIconsHtml,retailerChipsHtml,sites:restaurantSites};
+const SEL_LABEL = { no: 'No meal', frozen: 'Frozen', fast: 'Fast food' };
+function sourceControlHtml(dayIndex, slot, desired, actual){
+  const pending = desired !== actual;
+  const label = SEL_LABEL[desired];
+  return `<div class="src-ctl" data-day="${dayIndex}" data-slot="${escHtml(slot)}">
+      <div class="src-slider${pending ? ' pending' : ''}" role="slider" tabindex="0" data-src="${desired}" aria-label="Where this ${escHtml(slot)} comes from" aria-valuemin="0" aria-valuemax="1" aria-valuenow="${desired === 'fast' ? 1 : 0}" aria-valuetext="${label}" title="${pending ? 'Press regen to pull this meal from the ' + label.toLowerCase() + ' pool' : 'Pool for this meal: ' + label.toLowerCase()}"><span class="src-track"></span><span class="src-thumb"></span></div>
+      <div class="src-icons">
+        <button type="button" class="src-ic${desired === 'frozen' ? ' on' : ''}" data-src="frozen" aria-label="Frozen pool" title="Frozen pool">${iconSvg('ic-frozen')}</button>
+        <button type="button" class="src-ic${desired === 'fast' ? ' on' : ''}" data-src="fast" aria-label="Fast food pool" title="Fast food pool">${iconSvg('ic-fast')}</button>
+      </div>
+    </div>`;
+}
+window.DS={deliveryIconsHtml,retailerChipsHtml,sites:restaurantSites,getMealSource,getMealCalories,getMealServing,getMealPrice,getMealName,getMealRestaurant,getMealImage,getMealUrl,escHtml,SM_SPRITE,sourceControlHtml};
 })();
