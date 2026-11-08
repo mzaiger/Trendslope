@@ -12,7 +12,7 @@
 html,body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui,sans-serif}
 button{font-family:inherit;cursor:pointer}
 /* boogie header */
-.disco{position:relative;overflow:hidden;color:#fff;background:linear-gradient(120deg,#2a0a4a,#6a11cb 35%,#ff2fa0 70%,#ffb347);background-size:300% 300%;animation:shift 12s ease infinite;clip-path:polygon(0 0,100% 0,100% 78%,0 100%);padding-bottom:46px}
+.disco{position:relative;overflow:hidden;color:#fff;background:linear-gradient(120deg,#2a0a4a,#6a11cb 35%,#ff2fa0 70%,#ffb347);background-size:300% 300%;animation:shift 12s ease infinite;--rise:60px;clip-path:polygon(0 0,100% 0,100% calc(100% - var(--rise)),0 100%);padding-bottom:calc(var(--rise) + 40px)}
 @keyframes shift{50%{background-position:100% 50%}}
 .disco:before{content:"";position:absolute;inset:0;background:radial-gradient(circle,rgba(255,255,255,.35) 1px,transparent 2px) 0 0/26px 26px;animation:twinkle 2.4s linear infinite;opacity:.5}
 @keyframes twinkle{50%{opacity:.15}}
@@ -20,8 +20,8 @@ button{font-family:inherit;cursor:pointer}
 .hero img{width:240px;max-width:44vw;height:auto;border-radius:14px;border:3px solid #00ffd0;box-shadow:0 0 24px #ff2fa0,0 0 8px #00ffd0;transform:rotate(-3deg)}
 h1{font-family:Oswald,sans-serif;font-weight:700;text-transform:uppercase;font-size:clamp(40px,9vw,84px);line-height:.9;margin:0;letter-spacing:.03em;text-shadow:3px 3px 0 #ff2fa0,6px 6px 0 #1B63E0,0 0 28px #fff8}
 .tag{font-family:'IBM Plex Mono',monospace;font-size:13px;letter-spacing:.18em;text-transform:uppercase;margin:10px 0 0;color:#00ffd0}
-.marq{position:relative;white-space:nowrap;overflow:hidden;font-family:Oswald;letter-spacing:.2em;font-size:13px;opacity:.9;padding:4px 0}
-.marq span{display:inline-block;animation:mq 28s linear infinite}
+.slope{position:absolute;left:0;top:0;height:30px;line-height:30px;transform-origin:0 100%;white-space:nowrap;overflow:hidden;z-index:2;pointer-events:none}
+.slope .tr{display:inline-block;font-family:Oswald,sans-serif;font-weight:600;letter-spacing:.22em;font-size:14px;text-shadow:0 1px 6px rgba(0,0,0,.4);animation:mq 90s linear infinite}
 @keyframes mq{to{transform:translateX(-50%)}}
 main{max-width:1700px;margin:0 auto;padding:0 24px 60px}
 .controls{display:flex;flex-wrap:wrap;gap:10px 16px;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:10;padding:10px 0;background:linear-gradient(var(--bg) 78%,transparent)}
@@ -50,21 +50,27 @@ main{max-width:1700px;margin:0 auto;padding:0 24px 60px}
 @media(max-width:560px){.tile.w2{grid-column:span 1}}
 .daydiv{grid-column:1/-1;margin-top:14px;padding:7px 16px;border-radius:10px;color:#fff;font-family:Oswald,sans-serif;font-weight:600;font-size:14px;letter-spacing:.14em;text-transform:uppercase;background:linear-gradient(100deg,#2a0a4a,#6a11cb 45%,#ff2fa0);box-shadow:0 2px 10px rgba(106,17,203,.25)}
 .daydiv small{font-family:'IBM Plex Mono',monospace;letter-spacing:.05em;opacity:.8;margin-left:10px;font-size:11px;text-transform:none}
+.srcs{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 6px}
+.chip2{cursor:pointer;border:1px solid var(--line);background:#fff;color:var(--dim);border-radius:999px;padding:4px 13px;font:600 12px Oswald,sans-serif;letter-spacing:.1em;text-transform:uppercase}
+.chip2.on{color:#fff;border-color:transparent}
 </style></head><body>
 <header class="disco">
  <div class="hero">
   <img src="runner.gif" alt="Trendslope runner">
   <div><h1>Trendslope</h1><p class="tag">Run the slope · dodge the noise · catch the trends</p></div>
  </div>
- <div class="marq"><span id="mq"></span></div>
+ <div class="slope" id="slope"><span class="tr" id="mq">TRENDSLOPE</span></div>
 </header>
 <main>
  <div class="controls">
   <div class="tabs" id="tabs"></div>
+  <div class="tabs" id="sorts"></div>
   <div class="tabs" id="ranges"></div>
-  <div class="mono"><span id="count"></span> <button class="btn" id="dietbtn">Diet start date</button></div>
+  <div class="mono"><span id="count"></span></div>
  </div>
+ <div class="srcs" id="srcs"></div>
  <div class="grid" id="grid"></div>
+ <div id="more" style="height:1px"></div>
 </main>
 <script src="picks-store.js"></script>
 <script src="diet-shared.js"></script>
@@ -74,12 +80,13 @@ const U='mzaiger', BRANCH='main';
 const RAW=r=>`https://raw.githubusercontent.com/${U}/${r}/${BRANCH}/`;
 const SITE={diet:'SingleManDiet',trends:'TrendingTopics',movies:'Movies',music:'Music',software:'software',deals:'SlickDealsTracker',sports:'SportsDashboard'};
 const TREND_FILES=[['social_media_trends.json','social_media'],['google_trends.json','google'],['reddit_trends.json','reddit']];
-const DIET_CREATED='2026-11-02'; // SingleManDiet repo's first commit; change if you like
 const COLORS={diet:'#1E9E5A',deals:'#D9480F',sports:'#1B63E0',movies:'#7B2CBF',music:'#E0359B',software:'#0B7285',trends:'#F08C00'};
 const SLOTS=[['Breakfast',8],['Brunch',10],['Lunch',12],['Dinner',19],['Late dinner',22]];
-const RANGES=[[1,'1 day'],[2,'2 days'],[3,'3 days'],[7,'Week'],[30,'Month']];
+const DAY0=864e5;
+const WINS=[['1h',36e5,'1 hour'],['1d',DAY0,'1 day'],['1w',7*DAY0,'1 week'],['1m',30*DAY0,'1 month']];
+const SORTS=[['new','Newest'],['rank','Ranking']];
 // ===== helpers =====
-const DAY=864e5, now=Date.now();
+const DAY=864e5; let now=Date.now();
 const gc=(k,f)=>{const m=document.cookie.match('(?:^|; )'+k+'=([^;]*)');try{return m?JSON.parse(decodeURIComponent(m[1])):f}catch{return f}};
 const sc=(k,v)=>{document.cookie=`${k}=${encodeURIComponent(JSON.stringify(v))};max-age=31536000;path=/;SameSite=Lax`};
 const hs=s=>{let h=2166136261;for(const c of String(s)){h^=c.charCodeAt(0);h=Math.imul(h,16777619)}return(h>>>0)/4294967296};
@@ -87,47 +94,70 @@ const J=async u=>{try{const r=await fetch(u+'?v='+Math.floor(now/3e5));return r.
 const pick=o=>({title:o.title||o.name||o.topic||o.query||o.meal||o.item||'',img:o.image||o.img||o.poster||o.thumb||o.logo||'',url:o.url||o.link||'',desc:o.desc||o.description||o.summary||''});
 const arr=(o,d=0)=>{if(Array.isArray(o)&&o.length>2&&o[0]&&typeof o[0]=='object'&&pick(o[0]).title)return o;if(o&&typeof o=='object'&&d<4)for(const v of Object.values(o)){const r=arr(v,d+1);if(r)return r}};
 const lim=(a,n)=>a.slice(0,n);
-let S={tab:gc('ts_tab','live'),range:gc('ts_range',3),favs:gc('ts_favs',[]),created:gc('ts_created',DIET_CREATED)};
-let ITEMS=[], DIET=[];
+let S={tab:gc('ts_tab','live'),sort:gc('ts_sort','new'),win:gc('ts_win','1w'),hide:gc('ts_hide',[])};
+if(!Array.isArray(S.hide))S.hide=[];
+if(!['live','fav'].includes(S.tab))S.tab='live';if(!['new','rank'].includes(S.sort))S.sort='new';if(!WINS.some(w=>w[0]==S.win))S.win='1w';
+let ITEMS=[],DIET=[],SHOWN=60,MOVRANK=new Map(),LASTTOTAL=0;const CUR=new Map(),MOV={},MONTHS=new Set();
+const dts=d=>{if(!d)return NaN;const m=String(d).match(/^(\d{4})-(\d\d)-(\d\d)$/);return m?new Date(+m[1],m[2]-1,+m[3],12).getTime():Date.parse(d)};
 // ===== favorites: same localStorage keys/formats as each site, so they show on the other pages =====
 const LS=(k,f)=>{try{const v=localStorage.getItem(k);return v==null?f:JSON.parse(v)}catch{return f}},LW=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch{}};
 const mut=(k,fb,fn)=>{const o=LS(k,fb);fn(o);LW(k,o)};
+const kM=i=>i.fk||('all:'+i.raw.id),kS=i=>i.fk||(i.f+':'+i.raw.id),kT=i=>i.sk+'|'+i.raw.id;
 const FAV={
  movies:{is:i=>LS('movies_favs',[]).includes(i.raw.id),set:(i,on)=>mut('movies_favs',[],a=>{const x=new Set(a);on?x.add(i.raw.id):x.delete(i.raw.id);a.length=0;a.push(...x)})},
- music:{is:i=>('all:'+i.raw.id)in LS('music_favs',{}),set:(i,on)=>mut('music_favs',{},o=>{const k='all:'+i.raw.id;on?o[k]={...i.raw,rank:i.rank,src:'all'}:delete o[k]})},
- software:{is:i=>(i.f+':'+i.raw.id)in LS('software_favs2',{}),set:(i,on)=>mut('software_favs2',{},o=>{const k=i.f+':'+i.raw.id;on?o[k]={...i.raw,src:i.f}:delete o[k]})},
- trends:{is:i=>(i.sk+'|'+i.raw.id)in LS('trending_favorites',{}),set:(i,on)=>mut('trending_favorites',{},o=>{const u=i.sk+'|'+i.raw.id;on?o[u]={...i.raw,source:i.sk,uid:u}:delete o[u]})},
+ music:{is:i=>kM(i)in LS('music_favs',{}),set:(i,on)=>mut('music_favs',{},o=>{const k=kM(i);on?o[k]={...i.raw,rank:i.rank,src:'all'}:delete o[k]})},
+ software:{is:i=>kS(i)in LS('software_favs2',{}),set:(i,on)=>mut('software_favs2',{},o=>{const k=kS(i);on?o[k]={...i.raw,src:i.f}:delete o[k]})},
+ trends:{is:i=>kT(i)in LS('trending_favorites',{}),set:(i,on)=>mut('trending_favorites',{},o=>{const u=kT(i);on?o[u]={...i.raw,source:i.sk,uid:u}:delete o[u]})},
  deals:{is:i=>i.raw.link in LS('slickdeals_favorites',{}),set:(i,on)=>mut('slickdeals_favorites',{},o=>{on?o[i.raw.link]=i.raw:delete o[i.raw.link]})}};
 const isFav=i=>FAV[i.src]?FAV[i.src].is(i):false;
 const SC={};
+const tsTrend=(o,l)=>Date.parse(l=='reddit'?(o.started_trending||o.first_seen):(o.published||o.started_trending||o.first_seen));
+// items favorited on the other sites that are not in today's data: rebuilt from the snapshots those sites saved
+function extras(){const out=[],have=new Set(ITEMS.map(x=>x.id));
+ for(const[k,v]of Object.entries(LS('music_favs',{})))if(v&&v.id&&!have.has('mu'+v.id)){const t=dts(v.date);out.push({id:'mu'+v.id,src:'music',raw:v,rank:v.rank||null,title:v.title,ts:isNaN(t)?now:t,fk:k})}
+ for(const[k,v]of Object.entries(LS('software_favs2',{})))if(v&&v.id&&SW[v.src]&&!have.has('sw'+v.src+v.id)){const t=dts(v.date);out.push({id:'sw'+v.src+v.id,src:'software',f:v.src,raw:v,rank:(v.ranks&&(v.ranks['12']??v.ranks['0']))||null,title:v.title,ts:isNaN(t)?now:t,fk:k})}
+ for(const v of Object.values(LS('trending_favorites',{})))if(v&&v.id&&v.source&&!have.has('tr'+v.source+v.id)){const t=tsTrend(v,v.source);out.push({id:'tr'+v.source+v.id,src:'trends',sk:v.source,raw:v,rank:+v.rank||null,title:v.topic,ts:isNaN(t)?now:t})}
+ for(const v of Object.values(LS('slickdeals_favorites',{})))if(v&&v.link&&!have.has('dl'+v.link.slice(-50))){const t=Date.parse(v.pubDateIso);out.push({id:'dl'+v.link.slice(-50),src:'deals',raw:v,rank:null,title:v.title,ts:isNaN(t)?now:t})}
+ return out}
 // ===== loaders (each pushes items and re-renders as it arrives) =====
 const add=(a)=>{ITEMS.push(...a);render()};
-async function movies(){const b=RAW(SITE.movies),ix=await J(b+'index.json');if(!ix)return;
- for(const m of lim(ix.months,2)){const d=await J(`${b}data/${m.m}.json`);if(d)add(d.items.map((i,n)=>({id:'mv'+i.id,src:'movies',raw:i,rank:n+1,title:i.title})))}}
-async function music(){const d=await J(RAW(SITE.music)+'data/all.json');if(d)add(d.items.map((i,n)=>({id:'mu'+i.id,src:'music',raw:i,rank:i.rank||n+1,title:i.title})))}
-async function software(){for(const f of['github','steam','itunes']){const d=await J(RAW(SITE.software)+`data/${f}.json`);if(d)add(lim(d.items,40).map((i,n)=>({id:'sw'+f+i.id,src:'software',f,raw:i,rank:(i.ranks&&i.ranks['3'])||n+1,title:i.title})))}}
+async function monthLoad(ym){if(MONTHS.has(ym))return;MONTHS.add(ym);const d=await J(RAW(SITE.movies)+`data/${ym}.json`);if(d)add((d.items||[]).filter(m=>m.release).map(m=>({id:'mv'+m.id,src:'movies',raw:m,rank:MOVRANK.get(m.id)||null,title:m.title,ts:dts(m.release)})))}
+async function favMovies(){const have=new Set(ITEMS.filter(x=>x.src=='movies').map(x=>x.raw.id)),ms=new Set();for(const id of LS('movies_favs',[]))if(!have.has(id)&&MOV[id])ms.add(MOV[id].slice(0,7));for(const ym of[...ms].slice(0,8))await monthLoad(ym)}
+async function movies(){const b=RAW(SITE.movies),[sc,ix]=await Promise.all([J(b+'data/scores.json'),J(b+'data/index.json')]);if(!sc||!ix)return;
+ const c=Object.fromEntries(sc.cols.map((k,i)=>[k,i])),rows=sc.rows.map(r=>({id:r[c.id],release:r[c.release],rt:r[c.rt],imdb:r[c.imdb],box:r[c.box],score:r[c.score]}));
+ rows.forEach(m=>{MOV[m.id]=m.release});
+ const cut=new Date(now-3*30.44*DAY).toISOString().slice(0,10),n=m=>[m.rt,m.imdb,m.box].filter(v=>v!=null&&Number.isFinite(Number(v))).length;
+ rows.filter(m=>m.release>=cut&&n(m)>=2).sort((a,b)=>b.score-a.score||a.id-b.id).forEach((m,k)=>MOVRANK.set(m.id,k+1));
+ const have=new Set(ix.months.map(x=>x.m)),want=new Set();for(let t=now-32*DAY;t<=now+DAY;t+=DAY)want.add(new Date(t).toISOString().slice(0,7));
+ for(const ym of[...want].filter(m=>have.has(m)))await monthLoad(ym);
+ await favMovies()}
+async function music(){const d=await J(RAW(SITE.music)+'data/all.json');if(!d)return;
+ add(d.items.map((i,n)=>({id:'mu'+i.id,src:'music',raw:i,rank:i.rank||n+1,title:i.title,ts:i.date?dts(i.date):NaN})).filter(x=>!isNaN(x.ts)))}
+async function software(){for(const f of['github','steam','itunes']){const d=await J(RAW(SITE.software)+`data/${f}.json`);if(d)add(d.items.filter(i=>i.date).map((i,n)=>({id:'sw'+f+i.id,src:'software',f,raw:i,rank:(i.ranks&&(i.ranks['12']??i.ranks['0']))||n+1,title:i.title,ts:dts(i.date)})))}}
 async function deals(){try{const r=await fetch(RAW(SITE.deals)+'deals.xml?v='+Math.floor(now/3e5));const x=new DOMParser().parseFromString(await r.text(),'text/xml');
- add([...x.querySelectorAll('deal')].map(e=>{const g=t=>(e.querySelector(t)?.textContent||'').trim(),p=Date.parse(g('pubDateIso'));return{id:'dl'+g('link').slice(-50),src:'deals',title:g('title'),raw:{title:g('title'),link:g('link'),thumbnail:g('thumbnail'),rating:+g('rating')||0,description:g('description'),pubDateIso:g('pubDateIso')},ts:isNaN(p)?undefined:p}}).filter(i=>i.raw.link))}catch{}}
-async function sports(){const SP={nfl:'nfl',nhl:'nhl',mlb:'mlb',nba:'nba',ncaaf:'cfb',ncaamb:'ncaamb'};for(const l of Object.keys(SP)){const d=await J(RAW(SITE.sports)+`data/${l}_dashboard.json`);if(!d)continue;const out=[];
+ const L=[...x.querySelectorAll('deal')].map(e=>{const g=t=>(e.querySelector(t)?.textContent||'').trim(),p=Date.parse(g('pubDateIso'));return{id:'dl'+g('link').slice(-50),src:'deals',title:g('title'),raw:{title:g('title'),link:g('link'),thumbnail:g('thumbnail'),rating:+g('rating')||0,description:g('description'),pubDateIso:g('pubDateIso')},ts:p}}).filter(i=>i.raw.link&&!isNaN(i.ts));
+ [...L].sort((a,b)=>b.raw.rating-a.raw.rating||b.ts-a.ts).forEach((i,k)=>{i.rank=k+1});add(L)}catch{}}
+async function sports(){const SP={nfl:'nfl',nhl:'nhl',mlb:'mlb',nba:'nba',ncaaf:'cfb',ncaamb:'ncaamb'};for(const l of Object.keys(SP)){const d=await J(RAW(SITE.sports)+`data/${l}_dashboard.json`);if(!d)continue;const out=[],disp=new Set((l=='nfl'||l=='ncaaf'?PS.selectDisplayWeeks:PS.selectDisplayDays)(d.weeks||[],d.current_week).map(x=>x.week));
  for(const w of d.weeks||[])for(const dy of w.days||[])for(const sl of dy.time_slots||[]){const gs=sl.games||[];if(!gs.length)continue;const pk=gs.find(g=>g.is_slot_pick)||gs[0];
-  for(const g of gs)out.push({id:'sp'+SP[l]+g.id,src:'sports',pick:g===pk?1:0,raw:g,sport:SP[l],title:`${g.away_abbr||g.away_team} @ ${g.home_abbr||g.home_team}`,ts:Date.parse(g.start_time)})}
+  for(const g of gs){const t=Date.parse(g.start_time);if(!isNaN(t))out.push({id:'sp'+SP[l]+g.id,src:'sports',board:disp.has(w.week),pick:g===pk?1:0,raw:g,sport:SP[l],rank:g.matchup_rank??null,title:`${g.away_abbr||g.away_team} @ ${g.home_abbr||g.home_team}`,ts:t})}}
  add(out)}}
 async function scores(){for(const sp of['nfl','nhl','mlb','nba','cfb','ncaamb'])SC[sp]=await PS.fetchScores(sp);render()}
 async function trends(){for(const[f,l]of TREND_FILES){const d=await J(RAW(SITE.trends)+f);if(!d)continue;
- add((d.items||[]).map(o=>{const t=Date.parse(o.started_trending||o.first_seen);return{id:'tr'+l+o.id,src:'trends',sk:l,raw:o,title:o.topic,ts:isNaN(t)?undefined:t}}))}}
+ add((d.items||[]).map(o=>({id:'tr'+l+o.id,src:'trends',sk:l,raw:o,rank:+o.rank||null,title:o.topic,ts:tsTrend(o,l)})).filter(x=>!isNaN(x.ts)))}}
 async function diet(){const b=RAW(SITE.diet),[f,c]=await Promise.all([J(b+'meals.json'),J(b+'candidate_pool.json')]);
  const mk=(a,n,fz)=>a.filter(i=>i.active!==false&&+i.calories>=150).map(i=>({name:i.name||i.PRODUCT_NAME,img:i.image_url,url:i.PRODUCT_URL||'',cal:i.calories,where:i.restaurant||i.BRAND||'Frozen',bk:n(i),fz:fz,full:i,price:i.price??i.PRICE_CURRENT,serving:i.serving||i.servings_per_container}));
  for(const[k,v]of Object.entries(f?.restaurants||{}))if(v.site)DS.sites[k]=v.site;
  DIET=[...mk(f?.meals||[],i=>i.category=='breakfast',false),...mk(c||[],i=>/breakfast|egg|pancake|waffle|french toast|biscuit/i.test(i.PRODUCT_NAME),true)].filter(m=>m.name);render()}
-// ===== diet schedule: weeks start on the Monday after the creation date =====
-function dietItems(R,lo){if(!DIET.length)return[];const out=[];const today=new Date();today.setHours(0,0,0,0);
- let start=null;if(S.created){const c=new Date(S.created+'T00:00:00');c.setDate(c.getDate()+((8-c.getDay())%7||7));start=c}
- const days=Math.min(R,7);
- for(let k=days-1;k>=0;k--){const d=new Date(today.getTime()-k*DAY);const wk=start?Math.max(0,Math.floor((d-start)/(7*DAY))):0;
-  SLOTS.forEach(([nm,h],si)=>{const key=nm.split(' ')[0].toLowerCase();const ok=si==0?m=>m.bk:si==1?m=>true:m=>!m.bk;let pool=DIET.filter(ok);if(!pool.length)pool=DIET;
-   const o=pool[Math.floor(hs(`${wk}-${d.getDay()}-${si}`)*pool.length)],p={title:o.name,img:o.img,url:o.url};const t=new Date(d);t.setHours(h,0,0,0);
-   out.push({id:`di${wk}-${d.getDay()}-${si}`,src:'diet',raw:o,slot:nm,h,title:p.title,img:p.img,sub:`${nm} · ${(h%12||12)}:00 ${h<12?'AM':'PM'} · ${o.where} · ${o.cal} cal`,url:p.url,ts:t.getTime(),today:d.getTime()==today.getTime()})})}
- return out}
+// ===== diet schedule: weeks run Monday-Sunday; the meal for each slot is picked from the pools by that week/day/slot =====
+function dietItems(lo,hi,todayOnly){if(!DIET.length)return[];const all=[],t0=new Date(now);t0.setHours(0,0,0,0);
+ const first=todayOnly?new Date(t0):new Date(lo);first.setHours(0,0,0,0);const last=todayOnly?t0.getTime():hi+DAY;
+ for(let k=0;;k++){const day=new Date(first);day.setDate(first.getDate()+k);if(day.getTime()>last)break;
+  const mon=new Date(day);mon.setDate(day.getDate()-((day.getDay()+6)%7));const wk=mon.toISOString().slice(0,10);
+  SLOTS.forEach(([nm,h],si)=>{const ok=si==0?m=>m.bk:si==1?m=>true:m=>!m.bk;let pool=DIET.filter(ok);if(!pool.length)pool=DIET;
+   const o=pool[Math.floor(hs(`${wk}-${day.getDay()}-${si}`)*pool.length)],t=new Date(day);t.setHours(h,0,0,0);
+   all.push({id:`di${wk}-${day.getDay()}-${si}`,src:'diet',raw:o,slot:nm,h,title:o.name,img:o.img,ts:t.getTime(),today:day.getTime()==t0.getTime()})})}
+ if(todayOnly)return all;const nx=all.filter(x=>x.ts>=now).sort((a,b)=>a.ts-b.ts)[0];
+ return all.filter(x=>(x.ts>=lo&&x.ts<=hi)||x===nx)}
 
 // ===== tile renderers: same markup as each site's own page =====
 const ESC={'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'},esc=x=>String(x??'').replace(/[&<>"']/g,c=>ESC[c]);
@@ -273,7 +303,7 @@ movies:i=>{const m=i.raw,q=encodeURIComponent(m.title+(m.release?' '+m.release.s
  ic=(h,sr,n,lg)=>`<a href="${esc(h)}" target="_blank" rel="noopener noreferrer" title="${n}" aria-label="${n}"><img${lg?' class="logo"':''} src="${esc(sr)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.replaceWith(document.createTextNode('${n[0]}'))"><span class="arrow">\u2197</span></a>`,
  chip=(l,v)=>`<div class="chip"><small>${l}</small>${v}</div>`,st=m.st===1||(Array.isArray(m.stream)&&m.stream.length>0),
  th=fmtDate(m.theatrical||m.release)||'\u2014',sm=fmtDate(m.digital)||(st?'Available now':'');
- return`<article class="card"><div class="thumb-wrap">${safeUrl(m.poster)?`<img src="${esc(safeUrl(m.poster))}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.outerHTML='<div class=&quot;thumb-fallback&quot;>No Poster</div>'">`:'<div class="thumb-fallback">No Poster</div>'}${favT(i)}${st?`<div class="stream-pill" title="${esc(watchLinks(m).slice(1).map(w=>w.name).join(', '))}">`+'\u25b6 Streaming</div>':m.rentbuy?'<div class="stream-pill rent">Rent / Buy</div>':''}<div class="rank-pill">#${i.rank}</div></div><div class="body"><p class="title">${esc(m.title)}</p><p class="desc${m.overview?'':' none'} clamp">${m.overview?esc(m.overview):'No summary yet.'}</p><div class="chips">${chip('RT',m.rt==null?'\u2014':Math.round(m.rt)+'%')}${chip('IMDb',m.imdb==null?'\u2014':m.imdb.toFixed(1))}${chip('Box',money(m.box))}</div><p class="watch-label">Score Links and Trailer</p><div class="links scores">${ic(`https://www.rottentomatoes.com/search?search=${encodeURIComponent(m.title)}`,fv('rottentomatoes.com'),'Rotten Tomatoes')}${ic(imdb,fv('imdb.com'),'IMDb')}${ic(yt,fv('youtube.com'),'YouTube')}</div><p class="watch-label">Get Tickets or Stream On</p><div class="links watch">${watchLinks(m).map(w=>ic(w.href,w.img||fv(w.domain),w.name,!!w.img)).join('')}</div><p class="dates"><b>Theaters:</b> ${esc(th)}${sm?`<br><b>Streaming:</b> ${esc(sm)}`:''}</p></div></article>`},
+ return`<article class="card"><div class="thumb-wrap">${safeUrl(m.poster)?`<img src="${esc(safeUrl(m.poster))}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.outerHTML='<div class=&quot;thumb-fallback&quot;>No Poster</div>'">`:'<div class="thumb-fallback">No Poster</div>'}${favT(i)}${st?`<div class="stream-pill" title="${esc(watchLinks(m).slice(1).map(w=>w.name).join(', '))}">`+'\u25b6 Streaming</div>':m.rentbuy?'<div class="stream-pill rent">Rent / Buy</div>':''}${i.rank?`<div class="rank-pill">#${i.rank}</div>`:''}</div><div class="body"><p class="title">${esc(m.title)}</p><p class="desc${m.overview?'':' none'} clamp">${m.overview?esc(m.overview):'No summary yet.'}</p><div class="chips">${chip('RT',m.rt==null?'\u2014':Math.round(m.rt)+'%')}${chip('IMDb',m.imdb==null?'\u2014':m.imdb.toFixed(1))}${chip('Box',money(m.box))}</div><p class="watch-label">Score Links and Trailer</p><div class="links scores">${ic(`https://www.rottentomatoes.com/search?search=${encodeURIComponent(m.title)}`,fv('rottentomatoes.com'),'Rotten Tomatoes')}${ic(imdb,fv('imdb.com'),'IMDb')}${ic(yt,fv('youtube.com'),'YouTube')}</div><p class="watch-label">Get Tickets or Stream On</p><div class="links watch">${watchLinks(m).map(w=>ic(w.href,w.img||fv(w.domain),w.name,!!w.img)).join('')}</div><p class="dates"><b>Theaters:</b> ${esc(th)}${sm?`<br><b>Streaming:</b> ${esc(sm)}`:''}</p></div></article>`},
 music:i=>{const it=i.raw,L=it.links||{},q=encodeURIComponent(`${it.title} ${it.artist}`),u=safeUrl(Object.values(L)[0]),
  defs=[['spotify','Spotify',`https://open.spotify.com/search/${q}`],['itunes','Apple',`https://music.apple.com/us/search?term=${q}`],['video','Video',`https://www.youtube.com/results?search_query=${q}`],['billboard','Billboard','']],
  lk=defs.map(([k,n,sr])=>{const x=safeUrl(L[k]);return x?`<a class="lk" href="${esc(x)}" target="_blank" rel="noopener noreferrer">${n} \u2197</a>`:sr?`<a class="lk s" href="${esc(sr)}" target="_blank" rel="noopener noreferrer">${n} \u{1F50D}</a>`:''}).join(''),
@@ -294,34 +324,51 @@ software:i=>{const it=i.raw,S2=SW[i.f],url=safeUrl(it.url);
 // ===== render =====
 const ago=t=>{const m=Math.round((t-now)/6e4),a=Math.abs(m);const s=a<60?a+'m':a<1440?Math.round(a/60)+'h':Math.round(a/1440)+'d';return m>0?'in '+s:s+' ago'};
 const SHEETS={};let READY=false;const BASE=new CSSStyleSheet();
-BASE.replaceSync(':host{display:block}.tile-body{background:none!important;min-height:0!important;margin:0!important;padding:0!important;display:block!important}.tl-repo{display:block;text-align:center;font:600 11.5px "IBM Plex Mono",monospace;color:#64798E;text-decoration:none;padding:7px 0 0}.tl-repo:hover{color:#1B63E0}');
+BASE.replaceSync(':host{display:block}.tile-body{background:none!important;min-height:0!important;margin:0!important;padding:0!important;display:block!important}.tl-top{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 12px;border-radius:10px 10px 0 0;background:linear-gradient(100deg,#2a0a4a,#6a11cb 58%,#8e2de2);color:#fff;font:600 12px Oswald,sans-serif;letter-spacing:.16em;text-transform:uppercase;text-decoration:none}.tl-top:hover{filter:brightness(1.2)}.tl-go{opacity:.85;font-size:13px}.tl-top~.card,.tl-top~.day-card{border-top-left-radius:0!important;border-top-right-radius:0!important;margin-top:0!important}.tl-top~.card .pick-banner{border-radius:0!important}');
 async function sheets(){await Promise.all(Object.keys(TILE).map(async k=>{try{const t=await(await fetch(`css/${k}.css`)).text(),sh=new CSSStyleSheet();sh.replaceSync(t);SHEETS[k]=sh}catch{SHEETS[k]=new CSSStyleSheet()}}));READY=true;render()}
 const HOSTS=new Map();
 function host(i){let h=HOSTS.get(i.id);if(h)return h;h=document.createElement('div');h.className='tile';const r=h.attachShadow({mode:'open'});r.adoptedStyleSheets=[SHEETS[i.src],BASE];
- r.addEventListener('change',e=>{const t=e.target;if(t.classList&&t.classList.contains('fav-input')){const it=ITEMS.find(x=>x.id===t.dataset.id);if(it&&FAV[it.src])FAV[it.src].set(it,t.checked)}});
+ r.addEventListener('change',e=>{const t=e.target;if(t.classList&&t.classList.contains('fav-input')){const it=CUR.get(t.dataset.id);if(it&&FAV[it.src])FAV[it.src].set(it,t.checked)}});
  r.addEventListener('click',e=>{const d=e.target.closest&&e.target.closest('.desc');if(d&&!e.target.closest('a'))d.classList.toggle('clamp')});
  PS.attachPickHandlers(r,render);PS.attachGeminiHandlers(r);h._r=r;HOSTS.set(i.id,h);return h}
-const SPN={cfb:'ncaaf'};const theme=()=>{try{const t=localStorage.getItem('fb_theme');if(t==='dark'||t==='light')return t}catch{}return matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'};
-function render(){if(!READY)return;const R=S.range,lo=now-R*DAY,hi=now+DAY/2;let all=[];const per={};
- for(const it of ITEMS){let x=it;if(it.ts){if(it.ts<lo||it.ts>hi)continue}else x={...it,ts:lo+hs(it.id+R)*(now-lo)};if(it.src!='sports'){const k=it.src+(it.sk||it.f||'');per[k]=(per[k]||0)+1;if(per[k]>6*R+6)continue}all.push(x)}
- all.push(...dietItems(R,lo));
- if(S.tab=='fav')all=all.filter(i=>isFav(i)||(i.src=='diet'&&i.today)||(i.src=='sports'&&(i.pick||PS.hasAnyPick(i.sport,i.raw.id))));
- else all=all.filter(i=>i.src!='sports'||i.pick);
- all.sort((a,b)=>b.ts-a.ts);
- document.getElementById('count').textContent=all.length+' tiles';
- const out=[];let lastDay='';const t0=new Date();t0.setHours(0,0,0,0);
- for(const i of all){if(!TILE[i.src])continue;const dd=new Date(i.ts);dd.setHours(0,0,0,0);const dk=dd.getTime();if(dk!==lastDay){lastDay=dk;const df=Math.round((dk-t0.getTime())/DAY),dv=document.createElement('div');dv.className='daydiv';dv.innerHTML=(df==0?'Today':df==1?'Tomorrow':df==-1?'Yesterday':dd.toLocaleDateString('en-US',{weekday:'long'}))+`<small>${dd.toLocaleDateString('en-US',{month:'short',day:'numeric'})}</small>`;out.push(dv)}
- const h=host(i),html=`<div class="tile-body${i.src=='sports'&&theme()=='light'?' light-theme':''}"${i.src=='sports'?` data-sport="${SPN[i.sport]||i.sport}"`:''}>${TILE[i.src](i)}<a class="tl-repo" href="https://github.com/${U}/${SITE[i.src]}" target="_blank" rel="noopener noreferrer">${SITE[i.src]} repo \u2197</a></div>`;
+const SPN={cfb:'ncaaf'};const NAMES={movies:'Movies',music:'Music',software:'Software',trends:'Trending Topics',deals:'Slickdeals',sports:'Sports',diet:'Single Man\u2019s Diet'};
+function ticker(){const top=(src,n,f)=>{let L=ITEMS.filter(i=>i.src==src&&(!f||f(i)));const fresh=L.filter(i=>i.ts>now-DAY);if(fresh.length>=3)L=fresh;return L.sort((a,b)=>(a.rank||1e6)-(b.rank||1e6)).slice(0,n).map(i=>i.title)};
+ const w=[...top('trends',8,i=>i.sk=='google'),...top('trends',6,i=>i.sk=='social_media'),...top('trends',6,i=>i.sk=='reddit'),...top('movies',4),...top('music',4),...top('software',4),...top('deals',4)].map(t=>String(t||'').replace(/\s+/g,' ').trim().slice(0,44).toUpperCase()).filter(Boolean);
+ if(!w.length)return;const t=w.join('  \u2605  ')+'  \u2605  ';if(t===ticker.last)return;ticker.last=t;document.getElementById('mq').textContent=t+t}
+function slope(){const hd=document.querySelector('.disco'),W=hd.clientWidth,rise=Math.round(Math.max(36,Math.min(90,W*.06)));hd.style.setProperty('--rise',rise+'px');
+ const H=hd.offsetHeight,el=document.getElementById('slope');el.style.width=Math.ceil(Math.hypot(W,rise)+30)+'px';el.style.top=(H-36)+'px';el.style.transform=`rotate(${-Math.atan2(rise,W)}rad)`}
+function render(){if(!READY)return;now=Date.now();const W=WINS.find(w=>w[0]==S.win)[1],lo=now-W,hi=now+Math.min(W,DAY/2),fav=S.tab=='fav';let all;
+
+ if(fav)all=[...ITEMS,...extras(),...dietItems(lo,hi,true)].filter(i=>isFav(i)||(i.src=='diet'&&i.today)||(i.src=='sports'&&PS.hasAnyPick(i.sport,i.raw.id)));
+ else{all=ITEMS.filter(i=>i.src=='sports'?(i.board&&i.pick&&i.ts>=lo&&i.ts<=now+W):(i.ts>=lo&&i.ts<=hi));all.push(...dietItems(lo,hi,false))}
+
+ all=all.filter(i=>!S.hide.includes(i.src));
+ if(S.sort=='new')all.sort((a,b)=>b.ts-a.ts);
+ else{const dk=x=>x.ts>=now?x.ts-now:1e13+(now-x.ts);all.filter(i=>i.src=='diet').sort((a,b)=>dk(a)-dk(b)).forEach((x,k)=>{x.rk=k+1});all.forEach(i=>{if(i.src!='diet')i.rk=i.rank||1e6});
+  const G={};all.forEach(i=>{const g=i.src+(i.sk||i.f||'');(G[g]||(G[g]=[])).push(i)});for(const g in G)G[g].sort((a,b)=>a.rk-b.rk||b.ts-a.ts).forEach((x,k)=>{x.pos=k});
+  all.sort((a,b)=>a.pos-b.pos||a.rk-b.rk||b.ts-a.ts)}
+ LASTTOTAL=all.length;render.all=all;document.getElementById('count').textContent=all.length+' tiles';
+ const list=all.slice(0,SHOWN);CUR.clear();list.forEach(i=>CUR.set(i.id,i));
+ const out=[];let lastDay='';const t0=new Date(now);t0.setHours(0,0,0,0);
+ for(const i of list){if(!TILE[i.src])continue;
+  if(S.sort=='new'){const dd=new Date(i.ts);dd.setHours(0,0,0,0);const dk=dd.getTime();if(dk!==lastDay){lastDay=dk;const df=Math.round((dk-t0.getTime())/DAY),dv=document.createElement('div');dv.className='daydiv';dv.innerHTML=(df==0?'Today':df==1?'Tomorrow':df==-1?'Yesterday':dd.toLocaleDateString('en-US',{weekday:'long'}))+`<small>${dd.toLocaleDateString('en-US',{month:'short',day:'numeric'})}</small>`;out.push(dv)}}
+  const h=host(i),html=`<div class="tile-body${i.src=='sports'?' light-theme':''}"${i.src=='sports'?` data-sport="${SPN[i.sport]||i.sport}"`:''}><a class="tl-top" href="https://marcitech.net/${SITE[i.src]}" target="_blank" rel="noopener noreferrer" title="marcitech.net/${SITE[i.src]}"><span>${NAMES[i.src]}</span><span class="tl-go">\u2197</span></a>${TILE[i.src](i)}</div>`;
   if(h._h!==html){h._r.innerHTML=html;h._h=html}h.dataset.src=i.src;h.classList.remove('w2');out.push(h)}
- document.getElementById('grid').replaceChildren(...out)}
-function ui(){document.getElementById('tabs').innerHTML=[['live','Live stream'],['fav','Favorites']].map(([k,n])=>`<button class="tab ${S.tab==k?'on':''}" data-tab="${k}">${n}</button>`).join('');
- document.getElementById('ranges').innerHTML=RANGES.map(([d,n])=>`<button class="tab ${S.range==d?'on':''}" data-r="${d}">${n}</button>`).join('')}
-document.addEventListener('click',e=>{const t=e.target;
- if(t.dataset&&t.dataset.tab){S.tab=t.dataset.tab;sc('ts_tab',S.tab);ui();render()}
- if(t.dataset&&t.dataset.r){S.range=+t.dataset.r;sc('ts_range',S.range);ui();render()}});
-document.getElementById('dietbtn').onclick=()=>{const v=prompt('Single Man\u2019s Diet creation date (YYYY-MM-DD). Week 1 starts the Monday after:',S.created);if(v!==null){S.created=v.trim();sc('ts_created',S.created);render()}};
-const words=['TRENDSLOPE','#AF*!','FUNKY FRESH','$%&@!','KEEP RUNNING','WTF?!','BOOGIE ON UP','@#*&%'];
-document.getElementById('mq').textContent=(words.join('  ★  ')+'  ★  ').repeat(6);
-ui();window.addEventListener('storage',render);setInterval(render,60000);
+ document.getElementById('grid').replaceChildren(...out);ticker();
+ if(!render.t)render.t=setTimeout(()=>{render.t=0;const m=document.getElementById('more').getBoundingClientRect();if(m.top<innerHeight+900&&SHOWN<LASTTOTAL){SHOWN+=60;render()}},60)}
+function ui(){const btn=(a,k,v,n)=>`<button class="tab ${S[k]==v?'on':''}" data-${a}="${v}">${n}</button>`;
+ document.getElementById('tabs').innerHTML=[['live','Live stream'],['fav','Favorites']].map(([v,n])=>btn('tab','tab',v,n)).join('');
+ document.getElementById('sorts').innerHTML=SORTS.map(([v,n])=>btn('sort','sort',v,n)).join('');
+
+ document.getElementById('srcs').innerHTML=['movies','music','software','trends','deals','sports','diet'].map(k=>`<button class="chip2 ${S.hide.includes(k)?'':'on'}" data-hide="${k}"${S.hide.includes(k)?'':` style="background:${COLORS[k]}"`}>${NAMES[k]}</button>`).join('');
+ document.getElementById('ranges').innerHTML=WINS.map(([v,,n])=>btn('win','win',v,n)).join('')}
+document.addEventListener('click',e=>{const t=e.target,d=t.dataset;if(!d)return;let ch=0;
+ if(d.tab){S.tab=d.tab;sc('ts_tab',S.tab);ch=1;if(S.tab=='fav')favMovies()}
+ if(d.sort){S.sort=d.sort;sc('ts_sort',S.sort);ch=1}
+ if(d.win){S.win=d.win;sc('ts_win',S.win);ch=1}
+ if(d.hide){const k=d.hide,i=S.hide.indexOf(k);i<0?S.hide.push(k):S.hide.splice(i,1);sc('ts_hide',S.hide);ch=1}
+ if(ch){SHOWN=60;ui();render();scrollTo({top:Math.max(0,document.querySelector('.controls').offsetTop-8)})}});
+new IntersectionObserver(es=>{if(es.some(x=>x.isIntersecting)&&SHOWN<LASTTOTAL){SHOWN+=60;render()}},{rootMargin:'900px'}).observe(document.getElementById('more'));
+ui();slope();addEventListener('resize',slope);document.fonts&&document.fonts.ready.then(slope);addEventListener('storage',render);setInterval(render,60000);
 sheets();[movies,music,software,deals,sports,trends,diet,scores].forEach(f=>f());
 </script></body></html>

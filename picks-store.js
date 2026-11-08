@@ -1983,5 +1983,5 @@ function renderLiveStatusLine(scoreEntry) {
   return `<div class="score-status-line"><span class="live-dot"></span>Live${scoreEntry.status_detail ? ' \u2013 ' + scoreEntry.status_detail : ''}</div>`;
 }
 
-window.PS={DISPLAY_TZ,renderPickToolbar,pickCellClass,oddsHitClass,renderGeminiBlock,attachPickHandlers,attachGeminiHandlers,fetchScores,teamScoreBadge,renderLiveStatusLine,matchupLabel,formatChannelForPill,hasAnyPick};
+window.PS={selectDisplayWeeks,selectDisplayDays,DISPLAY_TZ,renderPickToolbar,pickCellClass,oddsHitClass,renderGeminiBlock,attachPickHandlers,attachGeminiHandlers,fetchScores,teamScoreBadge,renderLiveStatusLine,matchupLabel,formatChannelForPill,hasAnyPick};
 })();
