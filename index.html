@@ -97,7 +97,7 @@ const lim=(a,n)=>a.slice(0,n);
 let S={tab:gc('ts_tab','live'),sort:gc('ts_sort','new'),win:gc('ts_win','1w'),hide:gc('ts_hide',[])};
 if(!Array.isArray(S.hide))S.hide=[];
 if(!['live','fav'].includes(S.tab))S.tab='live';if(!['new','rank'].includes(S.sort))S.sort='new';if(!WINS.some(w=>w[0]==S.win))S.win='1w';
-let ITEMS=[],DIET=[],SHOWN=60,MOVRANK=new Map(),LASTTOTAL=0;const CUR=new Map(),MOV={},MONTHS=new Set();
+let ITEMS=[],DIET=[],GSET=new Set(),SHOWN=60,MOVRANK=new Map(),LASTTOTAL=0;const CUR=new Map(),MOV={},MONTHS=new Set();
 const dts=d=>{if(!d)return NaN;const m=String(d).match(/^(\d{4})-(\d\d)-(\d\d)$/);return m?new Date(+m[1],m[2]-1,+m[3],12).getTime():Date.parse(d)};
 // ===== favorites: same localStorage keys/formats as each site, so they show on the other pages =====
 const LS=(k,f)=>{try{const v=localStorage.getItem(k);return v==null?f:JSON.parse(v)}catch{return f}},LW=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch{}};
@@ -324,23 +324,25 @@ software:i=>{const it=i.raw,S2=SW[i.f],url=safeUrl(it.url);
 // ===== render =====
 const ago=t=>{const m=Math.round((t-now)/6e4),a=Math.abs(m);const s=a<60?a+'m':a<1440?Math.round(a/60)+'h':Math.round(a/1440)+'d';return m>0?'in '+s:s+' ago'};
 const SHEETS={};let READY=false;const BASE=new CSSStyleSheet();
-BASE.replaceSync(':host{display:block}.tile-body{background:none!important;min-height:0!important;margin:0!important;padding:0!important;display:block!important}.tl-top{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 12px;border-radius:10px 10px 0 0;background:linear-gradient(100deg,#2a0a4a,#6a11cb 58%,#8e2de2);color:#fff;font:600 12px Oswald,sans-serif;letter-spacing:.16em;text-transform:uppercase;text-decoration:none}.tl-top:hover{filter:brightness(1.2)}.tl-go{opacity:.85;font-size:13px}.tl-top~.card,.tl-top~.day-card{border-top-left-radius:0!important;border-top-right-radius:0!important;margin-top:0!important}.tl-top~.card .pick-banner{border-radius:0!important}');
+BASE.replaceSync(':host{display:block}.tile-body{background:none!important;min-height:0!important;margin:0!important;padding:0!important;display:block!important}.tl-top{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 12px;border-radius:10px 10px 0 0;background:linear-gradient(100deg,#2a0a4a,#6a11cb 58%,#8e2de2);color:#fff;font:600 12px Oswald,sans-serif;letter-spacing:.12em;text-transform:uppercase;text-decoration:none;white-space:nowrap}.tl-top em{font-style:normal;font-weight:500;opacity:.85}.tl-top:hover{filter:brightness(1.2)}.tl-go{opacity:.85;font-size:13px}.tl-top~.card,.tl-top~.day-card{border-top-left-radius:0!important;border-top-right-radius:0!important;margin-top:0!important}.tl-top~.card .pick-banner{border-radius:0!important}');
 async function sheets(){await Promise.all(Object.keys(TILE).map(async k=>{try{const t=await(await fetch(`css/${k}.css`)).text(),sh=new CSSStyleSheet();sh.replaceSync(t);SHEETS[k]=sh}catch{SHEETS[k]=new CSSStyleSheet()}}));READY=true;render()}
 const HOSTS=new Map();
 function host(i){let h=HOSTS.get(i.id);if(h)return h;h=document.createElement('div');h.className='tile';const r=h.attachShadow({mode:'open'});r.adoptedStyleSheets=[SHEETS[i.src],BASE];
  r.addEventListener('change',e=>{const t=e.target;if(t.classList&&t.classList.contains('fav-input')){const it=CUR.get(t.dataset.id);if(it&&FAV[it.src])FAV[it.src].set(it,t.checked)}});
  r.addEventListener('click',e=>{const d=e.target.closest&&e.target.closest('.desc');if(d&&!e.target.closest('a'))d.classList.toggle('clamp')});
  PS.attachPickHandlers(r,render);PS.attachGeminiHandlers(r);h._r=r;HOSTS.set(i.id,h);return h}
-const SPN={cfb:'ncaaf'};const NAMES={movies:'Movies',music:'Music',software:'Software',trends:'Trending Topics',deals:'Slickdeals',sports:'Sports',diet:'Single Man\u2019s Diet'};
+const SPN={cfb:'ncaaf'},SUBS={social_media:'Social Media',google:'Google',reddit:'Reddit',github:'GitHub',steam:'Steam',itunes:'iTunes'};const NAMES={movies:'Movies',music:'Music',software:'Software',trends:'Trending Topics',deals:'Slickdeals',sports:'Sports',diet:'Single Man\u2019s Diet'};
 function ticker(){const top=(src,n,f)=>{let L=ITEMS.filter(i=>i.src==src&&(!f||f(i)));const fresh=L.filter(i=>i.ts>now-DAY);if(fresh.length>=3)L=fresh;return L.sort((a,b)=>(a.rank||1e6)-(b.rank||1e6)).slice(0,n).map(i=>i.title)};
- const w=[...top('trends',8,i=>i.sk=='google'),...top('trends',6,i=>i.sk=='social_media'),...top('trends',6,i=>i.sk=='reddit'),...top('movies',4),...top('music',4),...top('software',4),...top('deals',4)].map(t=>String(t||'').replace(/\s+/g,' ').trim().slice(0,44).toUpperCase()).filter(Boolean);
+ const w=[...top('trends',8,i=>i.sk=='google'&&GSET.has(i.id)),...top('trends',6,i=>i.sk=='social_media'),...top('trends',6,i=>i.sk=='reddit'),...top('movies',4),...top('music',4),...top('software',4),...top('deals',4)].map(t=>String(t||'').replace(/\s+/g,' ').trim().slice(0,44).toUpperCase()).filter(Boolean);
  if(!w.length)return;const t=w.join('  \u2605  ')+'  \u2605  ';if(t===ticker.last)return;ticker.last=t;document.getElementById('mq').textContent=t+t}
 function slope(){const hd=document.querySelector('.disco'),W=hd.clientWidth,rise=Math.round(Math.max(36,Math.min(90,W*.06)));hd.style.setProperty('--rise',rise+'px');
  const H=hd.offsetHeight,el=document.getElementById('slope');el.style.width=Math.ceil(Math.hypot(W,rise)+30)+'px';el.style.top=(H-36)+'px';el.style.transform=`rotate(${-Math.atan2(rise,W)}rad)`}
 function render(){if(!READY)return;now=Date.now();const W=WINS.find(w=>w[0]==S.win)[1],lo=now-W,hi=now+Math.min(W,DAY/2),fav=S.tab=='fav';let all;
 
  if(fav)all=[...ITEMS,...extras(),...dietItems(lo,hi,true)].filter(i=>isFav(i)||(i.src=='diet'&&i.today)||(i.src=='sports'&&PS.hasAnyPick(i.sport,i.raw.id)));
- else{all=ITEMS.filter(i=>i.src=='sports'?(i.board&&i.pick&&i.ts>=lo&&i.ts<=now+W):(i.ts>=lo&&i.ts<=hi));all.push(...dietItems(lo,hi,false))}
+ else{const eod=new Date(now);eod.setHours(23,59,59,999);
+  GSET=new Set(ITEMS.filter(i=>i.src=='trends'&&i.sk=='google'&&i.ts>=now-36e5).sort((a,b)=>(a.rank||1e6)-(b.rank||1e6)).slice(0,20).map(i=>i.id));
+  all=ITEMS.filter(i=>i.src=='sports'?(i.board&&i.pick&&i.ts>=lo&&i.ts<=Math.min(now+W,eod.getTime())):i.src=='movies'?(i.rank!=null&&i.ts>=lo&&i.ts<=hi):(i.src=='trends'&&i.sk=='google')?(GSET.has(i.id)&&i.ts>=lo&&i.ts<=hi):(i.ts>=lo&&i.ts<=hi));all.push(...dietItems(lo,hi,false))}
 
  all=all.filter(i=>!S.hide.includes(i.src));
  if(S.sort=='new')all.sort((a,b)=>b.ts-a.ts);
@@ -352,7 +354,7 @@ function render(){if(!READY)return;now=Date.now();const W=WINS.find(w=>w[0]==S.w
  const out=[];let lastDay='';const t0=new Date(now);t0.setHours(0,0,0,0);
  for(const i of list){if(!TILE[i.src])continue;
   if(S.sort=='new'){const dd=new Date(i.ts);dd.setHours(0,0,0,0);const dk=dd.getTime();if(dk!==lastDay){lastDay=dk;const df=Math.round((dk-t0.getTime())/DAY),dv=document.createElement('div');dv.className='daydiv';dv.innerHTML=(df==0?'Today':df==1?'Tomorrow':df==-1?'Yesterday':dd.toLocaleDateString('en-US',{weekday:'long'}))+`<small>${dd.toLocaleDateString('en-US',{month:'short',day:'numeric'})}</small>`;out.push(dv)}}
-  const h=host(i),html=`<div class="tile-body${i.src=='sports'?' light-theme':''}"${i.src=='sports'?` data-sport="${SPN[i.sport]||i.sport}"`:''}><a class="tl-top" href="https://marcitech.net/${SITE[i.src]}" target="_blank" rel="noopener noreferrer" title="marcitech.net/${SITE[i.src]}"><span>${NAMES[i.src]}</span><span class="tl-go">\u2197</span></a>${TILE[i.src](i)}</div>`;
+  const h=host(i),html=`<div class="tile-body${i.src=='sports'?' light-theme':''}"${i.src=='sports'?` data-sport="${SPN[i.sport]||i.sport}"`:''}><a class="tl-top" href="https://marcitech.net/${SITE[i.src]}" target="_blank" rel="noopener noreferrer" title="marcitech.net/${SITE[i.src]}"><span>${NAMES[i.src]}${SUBS[i.src=='trends'?i.sk:i.src=='software'?i.f:'']?` <em>\u00b7 ${SUBS[i.src=='trends'?i.sk:i.f]}</em>`:''}</span><span class="tl-go">\u2197</span></a>${TILE[i.src](i)}</div>`;
   if(h._h!==html){h._r.innerHTML=html;h._h=html}h.dataset.src=i.src;h.classList.remove('w2');out.push(h)}
  document.getElementById('grid').replaceChildren(...out);ticker();
  if(!render.t)render.t=setTimeout(()=>{render.t=0;const m=document.getElementById('more').getBoundingClientRect();if(m.top<innerHeight+900&&SHOWN<LASTTOTAL){SHOWN+=60;render()}},60)}
