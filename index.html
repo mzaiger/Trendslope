@@ -116,7 +116,7 @@ body.site-mode #back{display:flex}
 // ===== CONFIG: change repo names / branch here =====
 const U='mzaiger', BRANCH='main';
 const RAW=r=>`https://raw.githubusercontent.com/${U}/${r}/${BRANCH}/`;
-const SITEBASE=window.TS_BASE||'https://marcitech.net/';
+const SITEBASE=window.TS_BASE||'https://marcitech.is-a.dev/';
 const SITE={diet:'SingleManDiet',trends:'TrendingTopics',movies:'Movies',music:'Music',software:'software',deals:'SlickDealsTracker',sports:'SportsDashboard'};
 const TREND_FILES=[['social_media_trends.json','social_media'],['google_trends.json','google'],['reddit_trends.json','reddit']];
 const COLORS={diet:'#1E9E5A',deals:'#D9480F',sports:'#1B63E0',movies:'#7B2CBF',music:'#E0359B',software:'#0B7285',trends:'#F08C00'};
@@ -299,7 +299,7 @@ function heatColor(rating) {
 
 const relT=iso=>{const m=Math.max(0,Math.round((now-new Date(iso).getTime())/6e4));if(m<1)return'just now';if(m<60)return m+'m ago';const h=Math.floor(m/60);if(h<24)return h+'h '+(m%60)+'m ago';return Math.floor(h/24)+'d '+(h%24)+'h ago'};
 const SERVICES = [
-  { k:'netflix',   re:/netflix/,                         name:'Netflix',        domain:'netflix.com',        url:q => `https://www.netflix.com/search?q=${q}` },
+  { k:'netflix',   re:/netflix/,                         name:'Netflix',        domain:'netflix.com',        url:q => `https://www.is-a.devflix.com/search?q=${q}` },
   { k:'hulu',      re:/^hulu/,                           name:'Hulu',           domain:'hulu.com',           url:() => 'https://www.hulu.com/search' },
   { k:'disney',    re:/disney/,                          name:'Disney+',        domain:'disneyplus.com',     url:() => 'https://www.disneyplus.com/en-gb/browse/search' },
   { k:'max',       re:/^max$|hbo/,                       name:'HBO Max',        domain:'hbomax.com', img:RAW(SITE.movies)+'img/hbo-max.png', url:q => `https://play.hbomax.com/search?q=${q}` },
