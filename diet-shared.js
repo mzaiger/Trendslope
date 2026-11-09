@@ -1,4 +1,4 @@
-/* Verbatim copy of SingleManDiet/shared.js, wrapped. */
+/* Verbatim copy of SingleManDiet/shared.js plus the planner's own pool/regen/slider functions, wrapped. */
 (function(){
 /* Single Man's Diet -- code shared by index.html and products.html.
  *
@@ -393,7 +393,101 @@ function latestDataDate(items, fields){
 const FROZEN_DATA_DATE_FIELDS = ['RunDate', '_calorie_max_checked_at', '_gemini_checked_at', '_kroger_discovered_at'];
 const FAST_DATA_DATE_FIELDS = ['_added_at', '_updated_at'];
 
+const TOLERANCE = 250;
+const REGEN_CALORIE_RANGE = 150;
+const MIN_MEAL_CALORIES = 150;
 const SEL_LABEL = { no: 'No meal', frozen: 'Frozen', fast: 'Fast food' };
+let rawPools = { frozen: { breakfast: [], regular: [] }, fast: { breakfast: [], regular: [], dessert: [] } };
+let activePools = null;
+function newCapInfo(){
+  return { caps: { frozen: { active: false, max: 0 }, fast: { active: false, max: 0 } }, healthyOnly: false, vegetarianOnly: false, fallbacks: { cap: [], healthy: [], vegetarian: [] }, usedKeys: [] };
+}
+function migrateCapInfo(ci){
+  ci = Object.assign(newCapInfo(), ci || {});
+  if(!ci.caps || !ci.caps.frozen || !ci.caps.fast){
+    const old = { active: !!ci.capActive, max: ci.maxPrice || 0 };
+    ci.caps = { frozen: Object.assign({}, old), fast: Object.assign({}, old) };
+  }
+  return ci;
+}
+function subPoolKeys(source, slot){
+  if(slot === 'breakfast') return ['breakfast'];
+  if(slot === 'brunch') return ['breakfast', 'regular'];
+    return ['regular'];
+}
+function poolForSlot(source, slot, pools){
+  pools = pools || activePools;
+  const src = pools && pools[source];
+  if(!src) return [];
+  let list = [];
+  subPoolKeys(source, slot).forEach(k => { list = list.concat(src[k] || []); });
+  return list;
+}
+function computeActivePools(caps, healthyOnly, vegetarianOnly){
+  const MIN_NEEDED = { breakfast: 1, regular: 2, dessert: 1 };
+  const out = { frozen: {}, fast: {} };
+  const fb = { cap: [], healthy: [], vegetarian: [] };
+  ['frozen', 'fast'].forEach(src => {
+    Object.keys(rawPools[src]).forEach(key => {
+      let list = rawPools[src][key];
+      const need = MIN_NEEDED[key];
+      const tag = src + ':' + key;
+      const capMax = caps && caps[src] && caps[src].active ? caps[src].max : 0;
+      if(capMax > 0){
+        const f = list.filter(m => getMealPriceNumber(m) <= capMax);
+        if(key === 'dessert'){ if(f.length) list = f; }
+        else if(f.length >= need) list = f;
+        else fb.cap.push(tag);
+      }
+      if(healthyOnly && key !== 'dessert'){
+        const f = list.filter(isHealthyMeal);
+        if(f.length >= need) list = f; else fb.healthy.push(tag);
+      }
+      if(vegetarianOnly){
+        const f = list.filter(isVegetarianMeal);
+        if(key === 'dessert'){ if(f.length) list = f; }
+        else if(f.length >= need) list = f;
+        else fb.vegetarian.push(tag);
+      }
+      out[src][key] = list;
+    });
+  });
+  out.fallbacks = fb;
+  return out;
+}
+function poolsForCapInfo(capInfo){
+  if(!capInfo) return computeActivePools(null, false, false);
+  capInfo = migrateCapInfo(capInfo);
+  return computeActivePools(capInfo.caps, capInfo.healthyOnly, capInfo.vegetarianOnly);
+}
+function compactMeal(meal){
+  return {
+    source: getMealSource(meal),
+    cat: getMealCategory(meal),
+    name: getMealName(meal),
+    calories: getMealCalories(meal),
+    price: getMealPriceNumber(meal) || null,
+    servings: getMealServing(meal),
+    restaurant: getMealRestaurant(meal),
+    url: getMealUrl(meal) || null,
+    instacart: getMealInstacartUrl(meal) || null,
+    image: getMealImage(meal) || null,
+    imageFull: getMealImageFallback(meal) || null
+  };
+}
+function mealKey(m){
+  return getMealSource(m) + '|' + getMealName(m);
+}
+function pickRegenChoice(choices, day, slot){
+  if(!day.regenBase) day.regenBase = {};
+  if(day.regenBase[slot] == null) day.regenBase[slot] = getMealCalories(day.meals[slot]);
+  const base = day.regenBase[slot];
+  const close = choices.filter(m => Math.abs(getMealCalories(m) - base) <= REGEN_CALORIE_RANGE);
+  if(close.length) return close[Math.floor(Math.random() * close.length)];
+  const nearest = Math.min(...choices.map(m => Math.abs(getMealCalories(m) - base)));
+  const ties = choices.filter(m => Math.abs(getMealCalories(m) - base) === nearest);
+  return ties[Math.floor(Math.random() * ties.length)];
+}
 function sourceControlHtml(dayIndex, slot, desired, actual){
   const pending = desired !== actual;
   const label = SEL_LABEL[desired];
@@ -405,5 +499,53 @@ function sourceControlHtml(dayIndex, slot, desired, actual){
       </div>
     </div>`;
 }
-window.DS={deliveryIconsHtml,retailerChipsHtml,sites:restaurantSites,getMealSource,getMealCalories,getMealServing,getMealPrice,getMealName,getMealRestaurant,getMealImage,getMealUrl,escHtml,SM_SPRITE,sourceControlHtml};
+
+/* ---- Trendslope headless versions of the planner's pool loading, regen and slider ---- */
+function tsLoadPools(frozenData, fastData){
+  if(frozenData){
+    const rows = Array.isArray(frozenData) ? frozenData : (frozenData.general || []);
+    const items = rows.filter(i => i.active !== false).map(normalizeFrozenItem).filter(i => getMealCalories(i) >= MIN_MEAL_CALORIES);
+    rawPools.frozen = { breakfast: items.filter(i => i._cat === 'breakfast'), regular: items.filter(i => i._cat !== 'breakfast') };
+  }
+  if(fastData){
+    if(fastData.restaurants && typeof fastData.restaurants === 'object'){
+      const fromJson = Object.keys(fastData.restaurants);
+      if(fromJson.length) restaurantInfo = fromJson;
+      fromJson.forEach(n => { const site = fastData.restaurants[n].site; if(site) restaurantSites[n] = site; });
+    }
+    const allowed = new Set(restaurantInfo);
+    const items = (fastData.meals || []).filter(m => allowed.has(m.restaurant) && m.active !== false).map(normalizeFastItem).filter(i => getMealCalories(i) >= MIN_MEAL_CALORIES);
+    rawPools.fast = { breakfast: items.filter(i => i._cat === 'breakfast'), regular: items.filter(i => i._cat === 'regular'), dessert: items.filter(i => i._cat === 'dessert') };
+  }
+}
+function tsRegen(week, dayIndex, slot){
+  const day = week && week.days && week.days[dayIndex];
+  if(!day || !day.meals || !day.meals[slot]) return false;
+  const pools = poolsForCapInfo(week.capInfo);
+  if(!day.pools) day.pools = {};
+  const src = day.pools[slot] || getMealSource(day.meals[slot]);
+  const sourcePool = poolForSlot(src, slot, pools);
+  if(!sourcePool.length) return false;
+  const usedKeys = new Set(Object.values(day.meals).map(mealKey));
+  let choices = sourcePool.filter(m => !usedKeys.has(mealKey(m)));
+  if(!choices.length) choices = sourcePool;
+  const pick = pickRegenChoice(choices, day, slot);
+  day.meals[slot] = compactMeal(pick);
+  day.pools[slot] = src;
+  day.total = Object.values(day.meals).reduce((s, m) => s + getMealCalories(m), 0);
+  const target = week.target || 1500;
+  day.inRange = day.total >= target - TOLERANCE && day.total <= target + TOLERANCE;
+  return true;
+}
+function tsSetPool(week, dayIndex, slot, src){
+  const day = week && week.days && week.days[dayIndex];
+  if(!day || !day.meals || !day.meals[slot]) return false;
+  if(!day.pools) day.pools = {};
+  const before = day.pools[slot] || getMealSource(day.meals[slot]);
+  if(before === src) return false;
+  day.pools[slot] = src;
+  return true;
+}
+
+window.DS={deliveryIconsHtml,retailerChipsHtml,sites:restaurantSites,getMealSource,getMealCalories,getMealServing,getMealPrice,getMealName,getMealRestaurant,getMealImage,getMealImageFallback,getMealUrl,escHtml,SM_SPRITE,sourceControlHtml,loadPools:tsLoadPools,regen:tsRegen,setPool:tsSetPool,REGEN_CALORIE_RANGE,SEL_LABEL};
 })();
