@@ -191,22 +191,29 @@ async function trends(){for(const[f,l]of TREND_FILES){const d=await J(RAW(SITE.t
 async function diet(){const b=RAW(SITE.diet),[f,c]=await Promise.all([J(b+'meals.json'),J(b+'candidate_pool.json')]);DS.loadPools(c,f);render()}
 // ===== diet: the meals come from the latest saved week of the Single Man's Diet planner (same browser storage as the planner) =====
 const SLOTH={'breakfast':8,'brunch':10,'lunch':12,'dinner':19,'late dinner':22};
-function dietPlan(){const sw=LS('singleManSavedWeeks',[]);
- if(Array.isArray(sw)&&sw.length){let k=sw.length-1,best=-1;sw.forEach((w,i)=>{const n=parseInt(String(w&&w.label||'').replace(/\D/g,''),10);if(n>best){best=n;k=i}});return{tab:k,week:sw[k],arr:sw,key:'singleManSavedWeeks'}}
- const cw=LS('singleManCurrentWeek',null);return cw&&Array.isArray(cw.days)&&cw.days.length?{tab:'current',week:cw,key:'singleManCurrentWeek'}:null}
+// Only days that carry a planner date (day.date, "YYYY-MM-DD") are used; weeks saved before dates existed are ignored.
+const ISO=x=>{const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(x||'');return m?new Date(+m[1],+m[2]-1,+m[3]):null};
+const wkNum=w=>parseInt(String(w&&w.label||'').replace(/\D/g,''),10);
+const hasDates=w=>!!(w&&Array.isArray(w.days)&&w.days.some(d=>ISO(d&&d.date)));
+// every dated saved week (highest-numbered first, so it wins when two weeks cover the same date); the unsaved current week only if no saved week has dates
+function dietPlans(){const sw=LS('singleManSavedWeeks',[]),out=[];
+ if(Array.isArray(sw))sw.forEach((w,i)=>{if(hasDates(w))out.push({tab:i,week:w,arr:sw,key:'singleManSavedWeeks',n:wkNum(w)})});
+ if(!out.length){const cw=LS('singleManCurrentWeek',null);if(hasDates(cw))out.push({tab:'current',week:cw,key:'singleManCurrentWeek',n:0})}
+ return out.sort((a,b)=>(b.n||0)-(a.n||0))}
+const wkOf=el=>el.closest('.day-card').dataset.wk;
+const dietPlan=wk=>dietPlans().find(P=>String(P.tab)===String(wk));
 const dietSave=P=>LW(P.key,P.arr||P.week);
-function dietItems(lo,hi,todayOnly){const P=dietPlan();if(!P)return[];const days=P.week.days||[],all=[],t0=new Date(now);t0.setHours(0,0,0,0);
- const first=new Date(todayOnly?t0.getTime():Math.max(lo,t0.getTime()-6*DAY));first.setHours(0,0,0,0);const last=todayOnly?t0.getTime():t0.getTime()+DAY;
- for(let k=0;;k++){const day=new Date(first);day.setDate(first.getDate()+k);if(day.getTime()>last)break;
-  const dn=day.toLocaleDateString('en-US',{weekday:'long'}),di=days.findIndex(d=>d.dayName===dn);if(di<0)continue;const d=days[di],ymd=`${day.getFullYear()}-${day.getMonth()+1}-${day.getDate()}`;
+function dietItems(lo,hi,todayOnly){const Ps=dietPlans();if(!Ps.length)return[];const all=[],seen=new Set(),t0=new Date(now);t0.setHours(0,0,0,0);
+ for(const P of Ps){(P.week.days||[]).forEach((d,di)=>{const day=ISO(d&&d.date);if(!day)return;const dn=day.toLocaleDateString('en-US',{weekday:'long'}),ymd=`${day.getFullYear()}-${day.getMonth()+1}-${day.getDate()}`;
+  if(todayOnly&&day.getTime()!=t0.getTime())return;
   const slots=(d.slotOrder&&d.slotOrder.length?d.slotOrder:Object.keys(d.meals||{})).filter(sl=>d.meals&&d.meals[sl]&&SLOTH[sl]!=null);
-  for(const sl of slots){const t=new Date(day);t.setHours(SLOTH[sl],0,0,0);const m=d.meals[sl];
-   all.push({id:`di${P.tab}-${di}-${sl}-${ymd}`,src:'diet',meal:m,day:di,slot:sl,desired:(d.pools&&d.pools[sl])||DS.getMealSource(m),title:DS.getMealName(m),ts:t.getTime(),today:day.getTime()==t0.getTime(),dn})}}
+  for(const sl of slots){const k=ymd+'|'+sl;if(seen.has(k))continue;seen.add(k);const t=new Date(day);t.setHours(SLOTH[sl],0,0,0);const m=d.meals[sl];
+   all.push({id:`di${P.tab}-${di}-${sl}-${ymd}`,src:'diet',meal:m,wk:P.tab,day:di,slot:sl,desired:(d.pools&&d.pools[sl])||DS.getMealSource(m),title:DS.getMealName(m),ts:t.getTime(),today:day.getTime()==t0.getTime(),dn,dt:`${day.getMonth()+1}/${day.getDate()}/${day.getFullYear()}`})}})}
  if(todayOnly)return all;const nx=all.filter(x=>x.ts>=now).sort((a,b)=>a.ts-b.ts)[0];return all.filter(x=>(x.ts>=lo&&x.ts<=hi)||x===nx)}
-function dietSelect(di,slot){const P=dietPlan();if(!P)return;const d=P.week.days[di];if(!d||!d.meals[slot])return;
+function dietSelect(wk,di,slot){const P=dietPlan(wk);if(!P)return;const d=P.week.days[di];if(!d||!d.meals[slot])return;
  try{localStorage.setItem('singleManPickRequest',JSON.stringify({tab:P.tab,dayIndex:di,slot,dayName:d.dayName,source:(d.pools&&d.pools[slot])||DS.getMealSource(d.meals[slot])}));localStorage.removeItem('singleManPickResult')}catch{alert("This browser won't let the page save the pick.");return}
  openSite('diet','products.html?pick=1')}
-function dietEdit(fn){const P=dietPlan();if(P&&fn(P)){dietSave(P);render()}}
+function dietEdit(wk,fn){const P=dietPlan(wk);if(P&&fn(P)){dietSave(P);render()}}
 // ===== tile renderers: same markup as each site's own page =====
 const ESC={'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'},esc=x=>String(x??'').replace(/[&<>"']/g,c=>ESC[c]);
 const safeUrl=u=>{try{const x=new URL(u);return/^https?:$/.test(x.protocol)?x.href:''}catch{return''}};
@@ -368,7 +375,7 @@ diet:i=>{const meal=i.meal,src=DS.getMealSource(meal),desired=i.desired,pending=
  rt=pending?`Pull a new meal from the ${DS.SEL_LABEL[desired].toLowerCase()} pool`:`Swap this meal for another within ${DS.REGEN_CALORIE_RANGE} calories of the original`,
  regen=`<button type="button" class="regen-btn${pending?' needs-regen':''}" data-day="${i.day}" data-slot="${e(i.slot)}" title="${e(rt)}">regen</button>`,
  pick=`<button type="button" class="regen-btn pick-btn" data-day="${i.day}" data-slot="${e(i.slot)}" title="Pick this meal by hand from the product list" aria-label="Select this meal by hand">select</button>`;
- return`<div style="display:none">${DS.SM_SPRITE}</div><div class="day-card"><div class="day-header"><div class="day-name">${i.dn}</div><div class="day-header-totals"><div class="price">${tm}</div></div></div><div class="meal-row">${thumb}<div class="meal-info"><div class="meal-slot">${e(i.slot)}</div><div class="meal-name">${rest?`<span class="meal-brand">${e(rest)}</span>`:''}${e(name)}</div></div><div class="meal-money"><div class="meal-cal">${cal} cal*</div><div class="meal-price">${pd}</div><div class="meal-serving">Serving: ${e(serving)}</div>${DS.sourceControlHtml(i.day,i.slot,desired,src)}</div><div class="meal-actions${src==='frozen'?' frozen-actions':''}">${pick}${regen}${links}</div></div></div>`},
+ return`<div style="display:none">${DS.SM_SPRITE}</div><div class="day-card" data-wk="${i.wk}"><div class="day-header"><div class="day-name">${i.dn}<br><span class="day-date">${i.dt}</span></div><div class="day-header-totals"><div class="price">${tm}</div></div></div><div class="meal-row">${thumb}<div class="meal-info"><div class="meal-slot">${e(i.slot)}</div><div class="meal-name">${rest?`<span class="meal-brand">${e(rest)}</span>`:''}${e(name)}</div></div><div class="meal-money"><div class="meal-cal">${cal} cal*</div><div class="meal-price">${pd}</div><div class="meal-serving">Serving: ${e(serving)}</div>${DS.sourceControlHtml(i.day,i.slot,desired,src)}</div><div class="meal-actions${src==='frozen'?' frozen-actions':''}">${pick}${regen}${links}</div></div></div>`},
 software:i=>{const it=i.raw,S2=SW[i.f],url=safeUrl(it.url);
  return`<article class="card"><div class="thumb-wrap ${i.f}">${url?`<a class="thumb-link" href="${esc(url)}" target="_blank" rel="noopener noreferrer">${imgT(it.image)}</a>`:imgT(it.image)}${favT(i)}<div class="rank-pill">#${i.rank}</div></div><div class="body"><p class="title">${url?`<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">${esc(it.title)}</a>`:esc(it.title)}</p><p class="desc clamp">${esc(it.desc||'No description provided.')}</p>${url?`<a class="open-link" href="${esc(url)}" target="_blank" rel="noopener noreferrer">${S2.open} <span>\u2197</span></a>`:''}<div class="meta"><span>${esc(fmtDate(it.date))}</span><span>${S2.m(it)}</span></div></div></article>`}};
 // ===== render =====
@@ -385,23 +392,23 @@ let tileDrag=null;const srcPtr=(sl,e)=>{const r=sl.getBoundingClientRect();retur
 function host(i){let h=HOSTS.get(i.id);if(h)return h;h=document.createElement('div');h.className='tile';const r=h.attachShadow({mode:'open'});r.adoptedStyleSheets=[SHEETS[i.src],BASE];
  r.addEventListener('change',e=>{const t=e.target;if(t.classList&&t.classList.contains('fav-input')){const it=CUR.get(t.dataset.id);if(it&&FAV[it.src])FAV[it.src].set(it,t.checked)}});
  r.addEventListener('click',e=>{const t=e.target;if(!t.closest)return;
-  const ic=t.closest('.day-card .src-ic');if(ic){const c=ic.closest('.src-ctl');dietEdit(P=>DS.setPool(P.week,+c.dataset.day,c.dataset.slot,ic.dataset.src));return}
-  const pb=t.closest('.day-card .pick-btn');if(pb){dietSelect(+pb.dataset.day,pb.dataset.slot);return}
-  const rb=t.closest('.day-card .regen-btn');if(rb){dietEdit(P=>{const ok=DS.regen(P.week,+rb.dataset.day,rb.dataset.slot);if(!ok)alert('No replacement meal found (the meal lists may still be loading).');return ok});return}
+  const ic=t.closest('.day-card .src-ic');if(ic){const c=ic.closest('.src-ctl');dietEdit(wkOf(c),P=>DS.setPool(P.week,+c.dataset.day,c.dataset.slot,ic.dataset.src));return}
+  const pb=t.closest('.day-card .pick-btn');if(pb){dietSelect(wkOf(pb),+pb.dataset.day,pb.dataset.slot);return}
+  const rb=t.closest('.day-card .regen-btn');if(rb){dietEdit(wkOf(rb),P=>{const ok=DS.regen(P.week,+rb.dataset.day,rb.dataset.slot);if(!ok)alert('No replacement meal found (the meal lists may still be loading).');return ok});return}
   const d=t.closest('.desc');if(d&&!t.closest('a'))d.classList.toggle('clamp')});
  r.addEventListener('pointerdown',e=>{const sl=e.target.closest&&e.target.closest('.day-card .src-slider');if(!sl)return;e.preventDefault();tileDrag={sl,start:sl.dataset.src};try{sl.setPointerCapture(e.pointerId)}catch{}sl.dataset.src=srcPtr(sl,e)});
  r.addEventListener('pointermove',e=>{if(tileDrag)tileDrag.sl.dataset.src=srcPtr(tileDrag.sl,e)});
- const endDrag=(e,cancel)=>{if(!tileDrag)return;const{sl,start}=tileDrag;tileDrag=null;const c=sl.closest('.src-ctl'),nx=cancel?start:srcPtr(sl,e);sl.dataset.src=nx;if(nx!==start)dietEdit(P=>DS.setPool(P.week,+c.dataset.day,c.dataset.slot,nx))};
+ const endDrag=(e,cancel)=>{if(!tileDrag)return;const{sl,start}=tileDrag;tileDrag=null;const c=sl.closest('.src-ctl'),nx=cancel?start:srcPtr(sl,e);sl.dataset.src=nx;if(nx!==start)dietEdit(wkOf(c),P=>DS.setPool(P.week,+c.dataset.day,c.dataset.slot,nx))};
  r.addEventListener('pointerup',e=>endDrag(e,false));r.addEventListener('pointercancel',e=>endDrag(e,true));
  r.addEventListener('keydown',e=>{const sl=e.target.closest&&e.target.closest('.day-card .src-slider');if(!sl)return;const c=sl.closest('.src-ctl');let nx=null;
   if(['ArrowLeft','ArrowDown','Home'].includes(e.key))nx='frozen';else if(['ArrowRight','ArrowUp','End'].includes(e.key))nx='fast';else if(e.key===' '||e.key==='Enter')nx=sl.dataset.src==='fast'?'frozen':'fast';
-  if(!nx)return;e.preventDefault();dietEdit(P=>DS.setPool(P.week,+c.dataset.day,c.dataset.slot,nx))});
+  if(!nx)return;e.preventDefault();dietEdit(wkOf(c),P=>DS.setPool(P.week,+c.dataset.day,c.dataset.slot,nx))});
  PS.attachPickHandlers(r,render);PS.attachGeminiHandlers(r);h._r=r;HOSTS.set(i.id,h);return h}
 // what the Live stream holds for a time filter W (before the source chips)
 function liveList(W){const lo=now-W,hi=now+Math.min(W,DAY/2),eod=new Date(now);eod.setHours(23,59,59,999);
  GSET=new Set(ITEMS.filter(i=>i.src=='trends'&&i.sk=='google'&&i.ts>=now-36e5).sort((a,b)=>(a.rank||1e6)-(b.rank||1e6)).slice(0,20).map(i=>i.id));
  const all=ITEMS.filter(i=>i.src=='sports'?(i.board&&i.pick&&i.ts>=lo&&i.ts<=Math.min(now+W,eod.getTime())):i.src=='movies'?(i.rank!=null&&i.ts>=lo&&i.ts<=hi):(i.src=='trends'&&i.sk=='google')?(GSET.has(i.id)&&i.ts>=lo&&i.ts<=hi):(i.ts>=lo&&i.ts<=hi));
- all.push(...dietItems(lo,hi,false));return all}
+ all.push(...dietItems(lo,now+W,false));return all}
 // the header line: titles of what landed on the board in the last hour
 function ticker(){let L=liveList(36e5).filter(i=>i.ts<=now&&i.ts>=now-36e5);if(!L.length)L=liveList(DAY).filter(i=>i.ts<=now);
  L.sort((a,b)=>b.ts-a.ts);const w=L.slice(0,40).map(i=>String(i.title||'').replace(/\s+/g,' ').trim().slice(0,44).toUpperCase()).filter(Boolean);
