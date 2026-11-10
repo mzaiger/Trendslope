@@ -96,7 +96,7 @@ body.site-mode #back{display:flex}
 <nav id="menu" aria-label="Sites">
  <a href="#/movies"><i style="background:#7B2CBF"></i>Movies</a><a href="#/music"><i style="background:#E0359B"></i>Music</a><a href="#/software"><i style="background:#0B7285"></i>Software</a><a href="#/trends"><i style="background:#F08C00"></i>Trending Topics</a><a href="#/deals"><i style="background:#D9480F"></i>Slickdeals</a><a href="#/sports"><i style="background:#1B63E0"></i>Sports</a><a href="#/diet"><i style="background:#1E9E5A"></i>Single Man&rsquo;s Diet</a>
 </nav>
-<div id="siteview"><iframe id="siteframe" title="Site" src="about:blank"></iframe></div>
+<div id="siteview"></div>
 <button id="back" type="button" aria-label="Return to main page"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg> Main page</button>
 
 <main>
@@ -116,7 +116,8 @@ body.site-mode #back{display:flex}
 // ===== CONFIG: change repo names / branch here =====
 const U='mzaiger', BRANCH='main';
 const RAW=r=>`https://raw.githubusercontent.com/${U}/${r}/${BRANCH}/`;
-const SITEBASE=window.TS_BASE||'https://marcitech.is-a.dev/';
+const SITEBASE=window.TS_BASE||'https://marcitech.net/';
+const SITEURL=(key,sub)=>{const own=window.TS_BASE?null:{software:'https://marcitech.is-a.dev/Software/'}[key];return(own||SITEBASE+SITE[key]+'/')+(sub||'')};
 const SITE={diet:'SingleManDiet',trends:'TrendingTopics',movies:'Movies',music:'Music',software:'software',deals:'SlickDealsTracker',sports:'SportsDashboard'};
 const TREND_FILES=[['social_media_trends.json','social_media'],['google_trends.json','google'],['reddit_trends.json','reddit']];
 const COLORS={diet:'#1E9E5A',deals:'#D9480F',sports:'#1B63E0',movies:'#7B2CBF',music:'#E0359B',software:'#0B7285',trends:'#F08C00'};
@@ -299,7 +300,7 @@ function heatColor(rating) {
 
 const relT=iso=>{const m=Math.max(0,Math.round((now-new Date(iso).getTime())/6e4));if(m<1)return'just now';if(m<60)return m+'m ago';const h=Math.floor(m/60);if(h<24)return h+'h '+(m%60)+'m ago';return Math.floor(h/24)+'d '+(h%24)+'h ago'};
 const SERVICES = [
-  { k:'netflix',   re:/netflix/,                         name:'Netflix',        domain:'netflix.com',        url:q => `https://www.is-a.devflix.com/search?q=${q}` },
+  { k:'netflix',   re:/netflix/,                         name:'Netflix',        domain:'netflix.com',        url:q => `https://www.netflix.com/search?q=${q}` },
   { k:'hulu',      re:/^hulu/,                           name:'Hulu',           domain:'hulu.com',           url:() => 'https://www.hulu.com/search' },
   { k:'disney',    re:/disney/,                          name:'Disney+',        domain:'disneyplus.com',     url:() => 'https://www.disneyplus.com/en-gb/browse/search' },
   { k:'max',       re:/^max$|hbo/,                       name:'HBO Max',        domain:'hbomax.com', img:RAW(SITE.movies)+'img/hbo-max.png', url:q => `https://play.hbomax.com/search?q=${q}` },
@@ -443,20 +444,22 @@ addEventListener('scroll',()=>{if(innerHeight+scrollY>document.documentElement.s
 document.getElementById('moreBtn').onclick=more;
 
 // ===== menu + in-page viewer: the other sites open in an iframe under the Trendslope header =====
-let MAINY=0,FROMMAIN=false,INIT=true;const fr=document.getElementById('siteframe');
-function openSite(key,sub){FROMMAIN=!document.body.classList.contains('site-mode');location.hash='#/'+key+(sub?'/'+sub:'')}
-function showSite(key,sub){const url=SITEBASE+SITE[key]+'/'+(sub||'');if(!document.body.classList.contains('site-mode')){MAINY=scrollY;FROMMAIN=!INIT;document.body.classList.add('site-mode')}
- if(fr.dataset.u!==url){fr.dataset.u=url;fr.src=url}fr.title=NAMES[key];slope.k='';scrollTo(0,0);slope();setTimeout(slope,60)}
-function showMain(){if(!document.body.classList.contains('site-mode'))return;document.body.classList.remove('site-mode');fr.dataset.u='';fr.src='about:blank';slope.k='';slope();render();scrollTo(0,MAINY)}
+let MAINY=0;const sv=document.getElementById('siteview');
+function openSite(key,sub){location.hash='#/'+key+(sub?'/'+sub:'')}
+// a fresh iframe each time (its first load replaces the blank page instead of adding browser-history steps)
+function showSite(key,sub){const url=SITEURL(key,sub);if(!document.body.classList.contains('site-mode')){MAINY=scrollY;document.body.classList.add('site-mode')}
+ const cur=sv.firstElementChild;if(!cur||cur.dataset.u!==url){const f=document.createElement('iframe');f.dataset.u=url;f.title=NAMES[key];f.src=url;sv.replaceChildren(f)}
+ slope.k='';scrollTo(0,0);slope();setTimeout(slope,60)}
+function showMain(){if(!document.body.classList.contains('site-mode'))return;document.body.classList.remove('site-mode');sv.replaceChildren();slope.k='';slope();render();scrollTo(0,MAINY)}
 function route(){const m=location.hash.match(/^#\/(\w+)(?:\/(.*))?$/);if(m&&SITE[m[1]])showSite(m[1],m[2]||'');else showMain()}
 addEventListener('hashchange',route);
-document.getElementById('back').onclick=()=>{if(FROMMAIN&&history.length>1){FROMMAIN=false;history.back()}else{history.replaceState(null,'',location.pathname+location.search);route()}};
+document.getElementById('back').onclick=()=>{history.replaceState(null,'',location.pathname+location.search);route()};   // one click, whatever the site did inside its frame
 const burger=document.getElementById('burger'),menu=document.getElementById('menu'),closeMenu=()=>{menu.classList.remove('open');burger.setAttribute('aria-expanded','false')};
 burger.onclick=e=>{e.stopPropagation();burger.setAttribute('aria-expanded',menu.classList.toggle('open'))};
-menu.addEventListener('click',e=>{if(e.target.closest('a')){FROMMAIN=true;closeMenu()}});
+menu.addEventListener('click',e=>{if(e.target.closest('a'))closeMenu()});
 document.addEventListener('click',e=>{if(!menu.contains(e.target)&&!burger.contains(e.target))closeMenu()});
 addEventListener('keydown',e=>{if(e.key==='Escape')closeMenu()});
-ui();slope();route();INIT=false;addEventListener('resize',slope);addEventListener('load',slope);addEventListener('orientationchange',()=>setTimeout(slope,250));
+ui();slope();route();addEventListener('resize',slope);addEventListener('load',slope);addEventListener('orientationchange',()=>setTimeout(slope,250));
 if(window.ResizeObserver)new ResizeObserver(slope).observe(document.querySelector('.disco'));if(window.visualViewport)visualViewport.addEventListener('resize',slope);
 document.fonts&&document.fonts.ready.then(slope);[300,1200,3000].forEach(ms=>setTimeout(slope,ms));
 addEventListener('storage',render);setInterval(render,60000);
