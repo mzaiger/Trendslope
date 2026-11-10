@@ -117,9 +117,8 @@ body.site-mode #back{display:flex}
 const U='mzaiger', BRANCH='main';
 const RAW=r=>`https://raw.githubusercontent.com/${U}/${r}/${BRANCH}/`;
 const SITEBASE=window.TS_BASE||'https://marcitech.is-a.dev/';
-const SITEURL=(key,sub)=>{const own=window.TS_BASE?null:{software:'https://marcitech.is-a.dev/Software/'}[key];return(own||SITEBASE+SITE[key]+'/')+(sub||'')};
-const SITE={diet:'SingleManDiet',trends:'TrendingTopics',movies:'Movies',music:'Music',software:'software',deals:'SlickDealsTracker',sports:'SportsDashboard'};
-const TREND_FILES=[['social_media_trends.json','social_media'],['google_trends.json','google'],['reddit_trends.json','reddit']];
+const SITEURL=(key,sub)=>SITEBASE+SITE[key]+'/'+(sub||'');
+const SITE={diet:'SingleManDiet',trends:'TrendingTopics',movies:'Movies',music:'Music',software:'Software',deals:'SlickDealsTracker',sports:'SportsDashboard'};const TREND_FILES=[['social_media_trends.json','social_media'],['google_trends.json','google'],['reddit_trends.json','reddit']];
 const COLORS={diet:'#1E9E5A',deals:'#D9480F',sports:'#1B63E0',movies:'#7B2CBF',music:'#E0359B',software:'#0B7285',trends:'#F08C00'};
 const SLOTS=[['Breakfast',8],['Brunch',10],['Lunch',12],['Dinner',19],['Late dinner',22]];
 const DAY0=864e5;
