@@ -12,7 +12,7 @@
 html,body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui,sans-serif}
 button{font-family:inherit;cursor:pointer}
 /* boogie header */
-.disco{position:relative;overflow:hidden;color:#fff;background:linear-gradient(120deg,#2a0a4a,#6a11cb 35%,#ff2fa0 70%,#ffb347);background-size:300% 300%;animation:shift 12s ease infinite;z-index:5;-webkit-transform:translateZ(0);transform:translateZ(0);-webkit-clip-path:polygon(0 0,100% 0,100% calc(100% - var(--rise)),0 100%);clip-path:polygon(0 0,100% 0,100% calc(100% - var(--rise)),0 100%);padding-bottom:calc(var(--rise) + 40px)}
+.disco{position:relative;color:#fff;background:linear-gradient(120deg,#2a0a4a,#6a11cb 35%,#ff2fa0 70%,#ffb347);background-size:300% 300%;animation:shift 12s ease infinite;z-index:5;-webkit-clip-path:polygon(0 0,100% 0,100% calc(100% - var(--rise)),0 100%);clip-path:polygon(0 0,100% 0,100% calc(100% - var(--rise)),0 100%);padding-bottom:calc(var(--rise) + 40px)}
 @keyframes shift{50%{background-position:100% 50%}}
 .disco:before{content:"";position:absolute;inset:0;background:radial-gradient(circle,rgba(255,255,255,.35) 1px,transparent 2px) 0 0/26px 26px;animation:twinkle 2.4s linear infinite;opacity:.5}
 @keyframes twinkle{50%{opacity:.15}}
@@ -83,11 +83,8 @@ body.site-mode .disco{flex:none}
 .disco .hero img{width:84px;max-width:84px;border-width:2px;box-shadow:0 0 14px #ff2fa0}
 .disco h1{font-size:clamp(24px,6vw,40px);text-shadow:2px 2px 0 #ff2fa0,3px 3px 0 #1B63E0}
 .disco .tag{display:none}
-body.site-mode #siteview{display:block;flex:1 1 auto;min-height:0;position:relative;overflow:hidden;margin-top:calc(var(--hs,0px) * -1)}
-body.site-mode .disco{-webkit-transform:translate3d(0,calc(var(--hs,0px) * -1),0);transform:translate3d(0,calc(var(--hs,0px) * -1),0)}   /* the banner scrolls up and away as the site scrolls (--hs set from the frame's scroll) */
-body.site-mode #burger,body.site-mode #menu{margin-top:calc(var(--hs,0px) * -1)}
+body.site-mode #siteview{display:block;flex:1 1 auto;min-height:0;position:relative;overflow:hidden}
 body.site-mode #back{display:flex}
-body.site-mode[data-site=diet] #siteview{margin-top:calc((var(--rise) + var(--hs,0px)) * -1)}   /* Single Man's Diet: its photo band runs up under the slanted edge */
 @media(max-width:700px){
  /* phones: a slim full-width bar, still slanted: tall on the left, short on the right (where the menu button sits) */
  :root{--rise:22px}
@@ -107,6 +104,7 @@ body.site-mode[data-site=diet] #siteview{margin-top:calc((var(--rise) + var(--hs
  .btn{font-size:10.2px;padding:5px 9px}
  .chip2{font-size:10.2px;padding:3.4px 11px}
 }
+@media(min-width:701px){.disco{overflow:hidden}}
 </style></head><body>
 <header class="disco">
  <div class="hero">
@@ -444,7 +442,7 @@ function ticker(){let L=liveList(36e5).filter(i=>i.ts<=now&&i.ts>=now-36e5);if(!
  if(!w.length)return;const t=w.join('  \u2605  ')+'  \u2605  ';if(t===ticker.last)return;ticker.last=t;const u=t.repeat(Math.max(1,Math.ceil(260/t.length)));document.getElementById('mq').textContent=u+u}
 function slope(){const hd=document.querySelector('.disco'),el=document.getElementById('slope');if(!hd||!el)return;
  const W=hd.clientWidth||innerWidth,mob=matchMedia('(max-width:700px)').matches,rise=mob?22:Math.round(Math.max(18,Math.min(32,W*.04)));
- document.documentElement.style.setProperty('--rise',rise+'px');   // the banner's cut-off edge is pure CSS (clip-path with --rise), so it can't be left at a stale size on first load
+ slope.rise=rise;   // the slanted edge itself is static CSS (clip-path never changes after load: iOS Safari can leave a changed clip-path unpainted until something forces a reflow)
  if(mob)return;el.style.width=Math.ceil(Math.hypot(W,rise)+30)+'px';el.style.transform=el.style.webkitTransform=`rotate(${-Math.atan2(rise,W)}rad)`}
 function render(){if(!READY||BOOT)return;now=Date.now();const W=30*DAY0,lo=now-W,hi=now+Math.min(W,DAY/2),fav=S.tab=='fav';let all;
  if(fav)all=[...ITEMS,...extras(),...dietItems(lo,hi,true)].filter(i=>isFav(i)||(i.src=='diet'&&i.today)||(i.src=='sports'&&PS.hasAnyPick(i.sport,i.raw.id)));
@@ -483,19 +481,22 @@ document.getElementById('moreBtn').onclick=more;
 let MAINY=0;const sv=document.getElementById('siteview');
 // each site's own mobile scale (its viewport tag's initial-scale), vs this page's 1.0
 const SITEBG={movies:'#FFFFFF',music:'#FFFFFF',software:'#FFFFFF',trends:'#FFFFFF',deals:'#FFFFFF',sports:'#0d1322',diet:'#EEF2F0'},paint=c=>{document.documentElement.style.background=document.body.style.background=c||''};   // each site's own page color fills the strip under the slope, so the page drops in below it seamlessly
+// banner scroll-away: plain top / margin offsets (no transforms or custom properties, which iOS Safari mishandles together with clip-path)
+const shiftHdr=px=>{const hd=document.querySelector('.disco'),b=document.getElementById('burger'),m=document.getElementById('menu'),extra=document.body.dataset.site=='diet'?(slope.rise||0):0,t=px?-px+'px':'';
+ hd.style.top=t;b&&(b.style.marginTop=t);m&&(m.style.marginTop=t);sv.style.marginTop=(px||extra)?-(px+extra)+'px':''};
 const sportsBg=()=>{try{return getEffectiveTheme()==='light'?'#f5f7fc':'#0d1322'}catch{return '#0d1322'}};   // Sports follows its own dark/light choice (same fb_theme setting, same origin)
 const SITESCALE={movies:.8,music:.8,software:.8,trends:.75,deals:.6,sports:1,diet:1},PSCALE=1,MOBILE=matchMedia('(hover:none) and (pointer:coarse)').matches;
 function openSite(key,sub){location.hash='#/'+key+(sub?'/'+sub:'')}
 // a fresh iframe each time (its first load replaces the blank page instead of adding browser-history steps)
 function showSite(key,sub){const url=SITEURL(key,sub);if(!document.body.classList.contains('site-mode')){MAINY=scrollY;document.body.classList.add('site-mode')}
- const cur=sv.firstElementChild;if(!cur||cur.dataset.u!==url){const f=document.createElement('iframe');f.dataset.u=url;f.title=NAMES[key];f.src=url;document.documentElement.style.setProperty('--hs','0px');
+ const cur=sv.firstElementChild;if(!cur||cur.dataset.u!==url){const f=document.createElement('iframe');f.dataset.u=url;f.title=NAMES[key];f.src=url;
   const s=SITESCALE[key],k=s/PSCALE;if(MOBILE&&s&&Math.abs(k-1)>.01)f.style.cssText=`inset:auto;top:0;left:0;width:${100/k}%;height:${100/k}%;transform:scale(${k});transform-origin:0 0`;   // lay the site out at its own width, then scale it to fit
   const sk=(MOBILE&&s&&Math.abs(k-1)>.01)?k:1;
-  f.addEventListener('load',()=>{try{const w=f.contentWindow,hd=document.querySelector('.disco'),upd=()=>{const y=Math.max(0,w.scrollY||w.document.documentElement.scrollTop||0);document.documentElement.style.setProperty('--hs',Math.min(y*sk,hd.offsetHeight)+'px')};w.addEventListener('scroll',upd,{passive:true});upd()}catch{}});   // header scrolls up with the site (same origin, so we can follow the frame's scroll)
+  f.addEventListener('load',()=>{try{const w=f.contentWindow,hd=document.querySelector('.disco'),upd=()=>{const y=Math.max(0,w.scrollY||w.document.documentElement.scrollTop||0);shiftHdr(Math.min(y*sk,hd.offsetHeight))};w.addEventListener('scroll',upd,{passive:true});upd()}catch{}});   // header scrolls up with the site (same origin, so we can follow the frame's scroll)
   if(key=='sports')f.addEventListener('load',()=>{try{const b=f.contentDocument.body,sync=()=>paint(getComputedStyle(b).getPropertyValue('--bg').trim()||(b.classList.contains('light-theme')?'#f5f7fc':'#0d1322'));sync();new MutationObserver(sync).observe(b,{attributes:true,attributeFilter:['class']})}catch{}});   // follow the theme toggle inside the frame
   sv.replaceChildren(f)}
- document.body.dataset.site=key;paint(key=='sports'?sportsBg():key=='diet'?'':SITEBG[key]);slope.k='';scrollTo(0,0);slope();setTimeout(slope,60)}
-function showMain(){if(!document.body.classList.contains('site-mode'))return;document.body.classList.remove('site-mode');delete document.body.dataset.site;paint('');document.documentElement.style.removeProperty('--hs');sv.replaceChildren();slope.k='';slope();render();scrollTo(0,MAINY)}
+ document.body.dataset.site=key;paint(key=='sports'?sportsBg():key=='diet'?'':SITEBG[key]);slope.k='';scrollTo(0,0);slope();shiftHdr(0);setTimeout(slope,60)}
+function showMain(){if(!document.body.classList.contains('site-mode'))return;document.body.classList.remove('site-mode');delete document.body.dataset.site;paint('');shiftHdr(0);sv.replaceChildren();slope.k='';slope();render();scrollTo(0,MAINY)}
 function route(){const m=location.hash.match(/^#\/(\w+)(?:\/(.*))?$/);if(m&&SITE[m[1]])showSite(m[1],m[2]||'');else showMain()}
 addEventListener('hashchange',route);
 document.getElementById('back').onclick=()=>{history.replaceState(null,'',location.pathname+location.search);route()};   // one click, whatever the site did inside its frame
@@ -507,7 +508,7 @@ addEventListener('keydown',e=>{if(e.key==='Escape')closeMenu()});
 ui();slope();route();addEventListener('resize',slope);addEventListener('load',slope);addEventListener('orientationchange',()=>setTimeout(slope,250));
 if(window.ResizeObserver)new ResizeObserver(slope).observe(document.querySelector('.disco'));if(window.visualViewport)visualViewport.addEventListener('resize',slope);
 // iOS/Android sometimes leave the clipped, animated banner unpainted on first load until something forces a re-layout (a zoom, a menu tap). Do that ourselves, a few times early on.
-const kick=()=>{const h=document.querySelector('.disco');if(!h)return;h.style.clipPath=h.style.webkitClipPath='none';void h.offsetHeight;h.style.clipPath=h.style.webkitClipPath='';slope()};
+const kick=()=>{slope()};
 requestAnimationFrame(()=>requestAnimationFrame(kick));[150,500,1200,2500,5000].forEach(ms=>setTimeout(kick,ms));
 addEventListener('load',kick);addEventListener('pageshow',kick);document.addEventListener('visibilitychange',()=>{if(!document.hidden)kick()});
 document.fonts&&document.fonts.ready.then(()=>{slope();kick()});[300,1200,3000].forEach(ms=>setTimeout(slope,ms));
