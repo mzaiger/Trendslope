@@ -171,9 +171,9 @@ async function favMovies(){const have=new Set(ITEMS.filter(x=>x.src=='movies').m
  for(const ym of new Set(rows.map(r=>r.release.slice(0,7))))await monthLoad(ym);add(rows.map(mvItem).filter(Boolean))}
 async function movies(){const sc=await J(RAW(SITE.movies)+'data/scores.json');if(!sc)return;
  const c=Object.fromEntries(sc.cols.map((k,i)=>[k,i]));MROWS=sc.rows.map(r=>({id:r[c.id],release:r[c.release],rt:r[c.rt],imdb:r[c.imdb],box:r[c.box],score:r[c.score]})).filter(r=>r.release);
- // the Movies site's overall board: last 3 months, at least 2 of its 3 scores, ranked by average score
- const cut=new Date(now-3*30.44*DAY).toISOString().slice(0,10),n=m=>[m.rt,m.imdb,m.box].filter(v=>v!=null&&Number.isFinite(Number(v))).length;
- MBOARD=MROWS.filter(m=>m.release>=cut&&n(m)>=2).sort((a,b)=>b.score-a.score||a.id-b.id);MBOARD.forEach((m,k)=>{m.rank=k+1});
+ // the Movies site's overall board: last 3 months, a box office or both RT and IMDb, ranked by average score
+ const cut=new Date(now-3*30.44*DAY).toISOString().slice(0,10),h=v=>v!=null&&Number.isFinite(Number(v)),ok=m=>h(m.box)||(h(m.rt)&&h(m.imdb));
+ MBOARD=MROWS.filter(m=>m.release>=cut&&ok(m)).sort((a,b)=>b.score-a.score||a.id-b.id);MBOARD.forEach((m,k)=>{m.rank=k+1});
  const from=new Date(now-32*DAY).toISOString().slice(0,10),to=new Date(now+DAY).toISOString().slice(0,10),rows=MBOARD.filter(m=>m.release>=from&&m.release<=to);
  await Promise.all([...new Set(rows.map(r=>r.release.slice(0,7)))].map(monthLoad));add(rows.map(mvItem).filter(Boolean));await favMovies()}
 async function music(){const d=await J(RAW(SITE.music)+'data/all.json');if(!d)return;
