@@ -88,11 +88,11 @@ body.site-mode #back{display:flex}
 @media(max-width:700px){
  /* phones: a slim full-width bar, still slanted: tall on the left, short on the right (where the menu button sits) */
  :root{--rise:22px}
- .disco{padding-bottom:0}
+ .disco{padding-bottom:30px}
  .disco .hero{padding:9px 52px 9px 14px;gap:10px;min-height:58px}
  .disco .hero img{width:60px;max-width:60px;border-width:2px;border-radius:8px;box-shadow:0 0 8px #ff2fa0}
  .disco h1{font-size:24px;text-shadow:1px 1px 0 #ff2fa0,2px 2px 0 #1B63E0}
- .slope{display:none}
+ .slope{height:22px;line-height:22px;bottom:5px}.slope .tr{font-size:12px}
  #burger{top:2px;right:8px;width:32px;height:32px;font-size:17px;border-radius:50%}
  #menu{top:40px;right:8px}
  main{padding-left:14px;padding-right:14px}
@@ -443,7 +443,7 @@ function ticker(){let L=liveList(36e5).filter(i=>i.ts<=now&&i.ts>=now-36e5);if(!
 function slope(){const hd=document.querySelector('.disco'),el=document.getElementById('slope');if(!hd||!el)return;
  const W=hd.clientWidth||innerWidth,mob=matchMedia('(max-width:700px)').matches,rise=mob?22:Math.round(Math.max(18,Math.min(32,W*.04)));
  slope.rise=rise;   // the slanted edge itself is static CSS (clip-path never changes after load: iOS Safari can leave a changed clip-path unpainted until something forces a reflow)
- if(mob)return;el.style.width=Math.ceil(Math.hypot(W,rise)+30)+'px';el.style.transform=el.style.webkitTransform=`rotate(${-Math.atan2(rise,W)}rad)`}
+ el.style.width=Math.ceil(Math.hypot(W,rise)+30)+'px';el.style.transform=el.style.webkitTransform=`rotate(${-Math.atan2(rise,W)}rad)`}
 function render(){if(!READY||BOOT)return;now=Date.now();const W=30*DAY0,lo=now-W,hi=now+Math.min(W,DAY/2),fav=S.tab=='fav';let all;
  if(fav)all=[...ITEMS,...extras(),...dietItems(lo,hi,true)].filter(i=>isFav(i)||(i.src=='diet'&&i.today)||(i.src=='sports'&&PS.hasAnyPick(i.sport,i.raw.id)));
  else all=liveList(W);
