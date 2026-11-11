@@ -87,15 +87,15 @@ body.site-mode #siteview{display:block;flex:1 1 auto;min-height:0;position:relat
 body.site-mode #back{display:flex}
 body.site-mode[data-site=diet] #siteview{margin-top:calc(var(--rise) * -1)}   /* Single Man's Diet: its photo band runs up under the slanted edge */
 @media(max-width:700px){
- /* phones: no banner, just a slim bar about as tall as the menu button */
- :root{--rise:0px}
- .disco{padding-bottom:0;-webkit-clip-path:none;clip-path:none}
- .disco .hero{padding:9px 66px 9px 14px;gap:10px;min-height:58px}
+ /* phones: a slim full-width bar, still slanted: tall on the left, short on the right (where the menu button sits) */
+ :root{--rise:22px}
+ .disco{padding-bottom:0}
+ .disco .hero{padding:9px 52px 9px 14px;gap:10px;min-height:58px}
  .disco .hero img{width:60px;max-width:60px;border-width:2px;border-radius:8px;box-shadow:0 0 8px #ff2fa0}
  .disco h1{font-size:24px;text-shadow:1px 1px 0 #ff2fa0,2px 2px 0 #1B63E0}
  .slope{display:none}
- #burger{top:7px;right:10px}
- #menu{top:58px;right:10px}
+ #burger{top:2px;right:8px;width:32px;height:32px;font-size:17px;border-radius:50%}
+ #menu{top:40px;right:8px}
  main{padding-left:14px;padding-right:14px}
  .controls{gap:6px 8px;padding:8px 0;justify-content:flex-start;flex-wrap:nowrap}
  .controls .tabs{flex-wrap:nowrap;flex:0 0 auto;gap:2px;padding:2px}
@@ -441,7 +441,7 @@ function ticker(){let L=liveList(36e5).filter(i=>i.ts<=now&&i.ts>=now-36e5);if(!
  L.sort((a,b)=>b.ts-a.ts);const w=L.slice(0,40).map(i=>String(i.title||'').replace(/\s+/g,' ').trim().slice(0,44).toUpperCase()).filter(Boolean);
  if(!w.length)return;const t=w.join('  \u2605  ')+'  \u2605  ';if(t===ticker.last)return;ticker.last=t;const u=t.repeat(Math.max(1,Math.ceil(260/t.length)));document.getElementById('mq').textContent=u+u}
 function slope(){const hd=document.querySelector('.disco'),el=document.getElementById('slope');if(!hd||!el)return;
- const W=hd.clientWidth||innerWidth,mob=matchMedia('(max-width:700px)').matches,rise=mob?0:Math.round(Math.max(18,Math.min(32,W*.04)));
+ const W=hd.clientWidth||innerWidth,mob=matchMedia('(max-width:700px)').matches,rise=mob?22:Math.round(Math.max(18,Math.min(32,W*.04)));
  document.documentElement.style.setProperty('--rise',rise+'px');   // the banner's cut-off edge is pure CSS (clip-path with --rise), so it can't be left at a stale size on first load
  if(mob)return;el.style.width=Math.ceil(Math.hypot(W,rise)+30)+'px';el.style.transform=el.style.webkitTransform=`rotate(${-Math.atan2(rise,W)}rad)`}
 function render(){if(!READY||BOOT)return;now=Date.now();const W=30*DAY0,lo=now-W,hi=now+Math.min(W,DAY/2),fav=S.tab=='fav';let all;
