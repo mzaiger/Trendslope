@@ -21,8 +21,7 @@ button{font-family:inherit;cursor:pointer}
 h1{font-family:Oswald,sans-serif;font-weight:700;text-transform:uppercase;font-size:clamp(40px,9vw,84px);line-height:.9;margin:0;letter-spacing:.03em;text-shadow:3px 3px 0 #ff2fa0,6px 6px 0 #1B63E0,0 0 28px #fff8}
 .tag{font-family:'IBM Plex Mono',monospace;font-size:13px;letter-spacing:.18em;text-transform:uppercase;margin:10px 0 0;color:#00ffd0}
 .slope{position:absolute;left:0;bottom:6px;height:30px;line-height:30px;transform-origin:0 100%;white-space:nowrap;overflow:hidden;z-index:2;pointer-events:none}
-.slope .tr{display:inline-block;font-family:Oswald,sans-serif;font-weight:600;letter-spacing:.22em;font-size:14px;text-shadow:0 1px 6px rgba(0,0,0,.4);animation:mq 90s linear infinite}
-@keyframes mq{to{transform:translateX(-50%)}}
+.slope .tr{display:inline-block;font-family:Oswald,sans-serif;font-weight:600;letter-spacing:.22em;font-size:14px;text-shadow:0 1px 6px rgba(0,0,0,.4)}   /* scrolled by script (see marquee) */
 main{max-width:1700px;margin:0 auto;padding:0 24px 60px}
 .controls{display:flex;flex-wrap:wrap;gap:10px 16px;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:10;padding:10px 0;background:linear-gradient(var(--bg) 78%,transparent)}
 .tabs{display:flex;flex-wrap:wrap;gap:4px;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:3px}
@@ -508,6 +507,13 @@ addEventListener('keydown',e=>{if(e.key==='Escape')closeMenu()});
 ui();slope();route();addEventListener('resize',slope);addEventListener('load',slope);addEventListener('orientationchange',()=>setTimeout(slope,250));
 if(window.ResizeObserver)new ResizeObserver(slope).observe(document.querySelector('.disco'));if(window.visualViewport)visualViewport.addEventListener('resize',slope);
 // iOS/Android sometimes leave the clipped, animated banner unpainted on first load until something forces a re-layout (a zoom, a menu tap). Do that ourselves, a few times early on.
+// ticker scroll: driven by script, one small left-margin step per frame. A CSS transform animation inside the rotated, clipped banner is what stalls on iPhones until a zoom forces a recomposite.
+(()=>{const tr=document.getElementById('mq');let x=0,last=0,half=0,len=-1,fr=0;
+ const step=t=>{const dt=last?Math.min(100,t-last)/1000:0;last=t;
+  if(tr.textContent.length!==len||++fr>=180){fr=0;len=tr.textContent.length;half=tr.offsetWidth/2}   // re-measure when the text changes or the font finishes loading
+  if(half>0){x=(x+half/90*dt)%half;tr.style.marginLeft=(-x).toFixed(1)+'px'}   // full loop of the repeated text every 90s, as before
+  requestAnimationFrame(step)};
+ requestAnimationFrame(step)})();
 const kick=()=>{slope()};
 requestAnimationFrame(()=>requestAnimationFrame(kick));[150,500,1200,2500,5000].forEach(ms=>setTimeout(kick,ms));
 addEventListener('load',kick);addEventListener('pageshow',kick);document.addEventListener('visibilitychange',()=>{if(!document.hidden)kick()});
