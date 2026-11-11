@@ -85,6 +85,7 @@ body.site-mode .disco{flex:none}
 .disco .tag{display:none}
 body.site-mode #siteview{display:block;flex:1 1 auto;min-height:0;position:relative;overflow:hidden}
 body.site-mode #back{display:flex}
+body.site-mode[data-site=diet] #siteview{margin-top:calc(var(--rise) * -1)}   /* Single Man's Diet: its photo band runs up under the slanted edge */
 @media(max-width:700px){
  :root{--rise:clamp(15px,3.4vw,27px)}
  .disco{padding-bottom:calc(var(--rise) + 27px)}
@@ -483,8 +484,8 @@ function showSite(key,sub){const url=SITEURL(key,sub);if(!document.body.classLis
   const s=SITESCALE[key],k=s/PSCALE;if(MOBILE&&s&&Math.abs(k-1)>.01)f.style.cssText=`inset:auto;top:0;left:0;width:${100/k}%;height:${100/k}%;transform:scale(${k});transform-origin:0 0`;   // lay the site out at its own width, then scale it to fit
   if(key=='sports')f.addEventListener('load',()=>{try{const b=f.contentDocument.body,sync=()=>paint(b.classList.contains('light-theme')?'#ffffff':'#0a0d10');sync();new MutationObserver(sync).observe(b,{attributes:true,attributeFilter:['class']})}catch{}});   // follow the theme toggle inside the frame
   sv.replaceChildren(f)}
- paint(key=='sports'?sportsBg():SITEBG[key]);slope.k='';scrollTo(0,0);slope();setTimeout(slope,60)}
-function showMain(){if(!document.body.classList.contains('site-mode'))return;document.body.classList.remove('site-mode');paint('');sv.replaceChildren();slope.k='';slope();render();scrollTo(0,MAINY)}
+ document.body.dataset.site=key;paint(key=='sports'?sportsBg():key=='diet'?'':SITEBG[key]);slope.k='';scrollTo(0,0);slope();setTimeout(slope,60)}
+function showMain(){if(!document.body.classList.contains('site-mode'))return;document.body.classList.remove('site-mode');delete document.body.dataset.site;paint('');sv.replaceChildren();slope.k='';slope();render();scrollTo(0,MAINY)}
 function route(){const m=location.hash.match(/^#\/(\w+)(?:\/(.*))?$/);if(m&&SITE[m[1]])showSite(m[1],m[2]||'');else showMain()}
 addEventListener('hashchange',route);
 document.getElementById('back').onclick=()=>{history.replaceState(null,'',location.pathname+location.search);route()};   // one click, whatever the site did inside its frame
