@@ -73,6 +73,11 @@ body{position:relative}
 #siteview iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:#fff}
 #back{display:none;position:fixed;left:1rem;bottom:calc(1rem + env(safe-area-inset-bottom,0px));z-index:400;align-items:center;gap:.4rem;font:600 .78rem system-ui,-apple-system,sans-serif;color:#fff;background:linear-gradient(100deg,#2a0a4a,#6a11cb);border:1px solid #8e2de2;border-radius:999px;padding:.4rem .8rem;cursor:pointer;box-shadow:0 10px 24px -12px rgba(0,0,0,.6)}
 #back:hover{border-color:#ff2fa0;color:#ffd0ec}
+#totop{display:flex;position:fixed;right:1rem;bottom:calc(1rem + env(safe-area-inset-bottom,0px));z-index:400;align-items:center;gap:.4rem;font:600 .78rem system-ui,-apple-system,sans-serif;color:#fff;background:linear-gradient(100deg,#2a0a4a,#6a11cb);border:1px solid #8e2de2;border-radius:999px;padding:.45rem .85rem;cursor:pointer;box-shadow:0 10px 24px -12px rgba(0,0,0,.6);opacity:0;pointer-events:none;transform:translateY(8px);transition:opacity .2s,transform .2s}
+#totop.show{opacity:1;pointer-events:auto;transform:none}
+#totop:hover{border-color:#ff2fa0;color:#ffd0ec}
+body.site-mode #totop{display:none}
+#totop svg{width:.95rem;height:.95rem;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 #back svg{width:.95rem;height:.95rem;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 body.site-mode{height:100vh;height:100dvh;display:flex;flex-direction:column;overflow:hidden}
 body.site-mode main{display:none}
@@ -118,6 +123,7 @@ body.site-mode #back{display:flex}
  <a href="#/movies"><i style="background:#7B2CBF"></i>Movies</a><a href="#/music"><i style="background:#E0359B"></i>Music</a><a href="#/software"><i style="background:#0B7285"></i>Software</a><a href="#/trends"><i style="background:#F08C00"></i>Trending Topics</a><a href="#/deals"><i style="background:#D9480F"></i>Slickdeals</a><a href="#/sports"><i style="background:#1B63E0"></i>Sports</a><a href="#/diet"><i style="background:#1E9E5A"></i>Single Man&rsquo;s Diet</a>
 </nav>
 <div id="siteview"></div>
+<button id="totop" type="button" aria-label="Jump back to top"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 15l7-7 7 7"/></svg> Top</button>
 <button id="back" type="button" aria-label="Return to main page"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg> Main page</button>
 
 <main>
@@ -466,8 +472,8 @@ function ui(){const btn=(a,k,v,n)=>`<button class="tab ${S[k]==v?'on':''}" data-
  document.getElementById('sorts').innerHTML=SORTS.map(([v,n])=>btn('sort','sort',v,n)).join('');
  document.getElementById('srcs').innerHTML=['movies','music','software','trends','deals','sports','diet'].map(k=>`<button class="chip2 ${S.hide.includes(k)?'':'on'}" data-hide="${k}"${S.hide.includes(k)?'':` style="background:${COLORS[k]}"`}>${NAMES[k]}</button>`).join('');}
 document.addEventListener('click',e=>{const t=e.target,d=t.dataset;if(!d)return;let ch=0;
- if(d.tab){S.tab=d.tab;sc('ts_tab',S.tab);ch=1;if(S.tab=='fav')favMovies()}
- if(d.sort){S.sort=d.sort;sc('ts_sort2',S.sort);ch=1}
+ if(d.tab){S.tab=d.tab;sc('ts_tab',S.tab);ch=1;SHOWN=60;scrollTo(0,0);if(S.tab=='fav')favMovies()}
+ if(d.sort){S.sort=d.sort;sc('ts_sort2',S.sort);ch=1;SHOWN=60;scrollTo(0,0)}
  if(d.win){S.win=d.win;sc('ts_win',S.win);ch=1}
  if(d.hide){const k=d.hide,i=S.hide.indexOf(k);i<0?S.hide.push(k):S.hide.splice(i,1);sc('ts_hide',S.hide);ch=1}
  if(ch){SHOWN=60;ui();render();scrollTo({top:Math.max(0,document.querySelector('.controls').offsetTop-8)})}});
@@ -521,6 +527,9 @@ if(window.ResizeObserver)new ResizeObserver(slope).observe(document.querySelecto
   if(half>0){x=(x+half/90*dt)%half;tr.style.marginLeft=(-x).toFixed(1)+'px'}   // full loop of the repeated text every 90s, as before
   requestAnimationFrame(step)};
  requestAnimationFrame(step)})();
+const toTop=document.getElementById('totop');   // jump back to top (main page): shows after scrolling down a screen or so
+toTop.onclick=()=>scrollTo({top:0,behavior:'smooth'});
+addEventListener('scroll',()=>toTop.classList.toggle('show',scrollY>innerHeight*.8),{passive:true});
 const kick=()=>{slope()};
 requestAnimationFrame(()=>requestAnimationFrame(kick));[150,500,1200,2500,5000].forEach(ms=>setTimeout(kick,ms));
 addEventListener('load',kick);addEventListener('pageshow',kick);document.addEventListener('visibilitychange',()=>{if(!document.hidden)kick()});
