@@ -1,18 +1,18 @@
 <!DOCTYPE html>
 <html lang="en"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=0.85">
 <title>Trendslope</title>
 <link rel="icon" type="image/gif" href="favicon.gif">
 <link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700;900&family=Permanent+Marker&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/fonts.css">
 <style>
-:root{--bg:#fff;--panel:#F2F7FD;--line:#D9E5F2;--text:#10233F;--dim:#64798E;--blue:#1B63E0;--radius:10px}
+:root{--rise:clamp(18px,4vw,32px);--bg:#fff;--panel:#F2F7FD;--line:#D9E5F2;--text:#10233F;--dim:#64798E;--blue:#1B63E0;--radius:10px}
 *{box-sizing:border-box}
 html,body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui,sans-serif}
 button{font-family:inherit;cursor:pointer}
 /* boogie header */
-.disco{position:relative;overflow:hidden;color:#fff;background:linear-gradient(120deg,#2a0a4a,#6a11cb 35%,#ff2fa0 70%,#ffb347);background-size:300% 300%;animation:shift 12s ease infinite;--rise:60px;clip-path:polygon(0 0,100% 0,100% calc(100% - var(--rise)),0 100%);padding-bottom:calc(var(--rise) + 40px)}
+.disco{position:relative;overflow:hidden;color:#fff;background:linear-gradient(120deg,#2a0a4a,#6a11cb 35%,#ff2fa0 70%,#ffb347);background-size:300% 300%;animation:shift 12s ease infinite;z-index:5;-webkit-clip-path:polygon(0 0,100% 0,100% calc(100% - var(--rise)),0 100%);clip-path:polygon(0 0,100% 0,100% calc(100% - var(--rise)),0 100%);padding-bottom:calc(var(--rise) + 40px)}
 @keyframes shift{50%{background-position:100% 50%}}
 .disco:before{content:"";position:absolute;inset:0;background:radial-gradient(circle,rgba(255,255,255,.35) 1px,transparent 2px) 0 0/26px 26px;animation:twinkle 2.4s linear infinite;opacity:.5}
 @keyframes twinkle{50%{opacity:.15}}
@@ -20,7 +20,7 @@ button{font-family:inherit;cursor:pointer}
 .hero img{width:240px;max-width:44vw;height:auto;border-radius:14px;border:3px solid #00ffd0;box-shadow:0 0 24px #ff2fa0,0 0 8px #00ffd0;transform:rotate(-3deg)}
 h1{font-family:Oswald,sans-serif;font-weight:700;text-transform:uppercase;font-size:clamp(40px,9vw,84px);line-height:.9;margin:0;letter-spacing:.03em;text-shadow:3px 3px 0 #ff2fa0,6px 6px 0 #1B63E0,0 0 28px #fff8}
 .tag{font-family:'IBM Plex Mono',monospace;font-size:13px;letter-spacing:.18em;text-transform:uppercase;margin:10px 0 0;color:#00ffd0}
-.slope{will-change:transform;position:absolute;left:0;top:0;height:30px;line-height:30px;transform-origin:0 100%;white-space:nowrap;overflow:hidden;z-index:2;pointer-events:none}
+.slope{position:absolute;left:0;bottom:6px;height:30px;line-height:30px;transform-origin:0 100%;white-space:nowrap;overflow:hidden;z-index:2;pointer-events:none}
 .slope .tr{display:inline-block;font-family:Oswald,sans-serif;font-weight:600;letter-spacing:.22em;font-size:14px;text-shadow:0 1px 6px rgba(0,0,0,.4);animation:mq 90s linear infinite}
 @keyframes mq{to{transform:translateX(-50%)}}
 main{max-width:1700px;margin:0 auto;padding:0 24px 60px}
@@ -83,8 +83,21 @@ body.site-mode .disco{flex:none}
 .disco .hero img{width:84px;max-width:84px;border-width:2px;box-shadow:0 0 14px #ff2fa0}
 .disco h1{font-size:clamp(24px,6vw,40px);text-shadow:2px 2px 0 #ff2fa0,3px 3px 0 #1B63E0}
 .disco .tag{display:none}
-body.site-mode #siteview{display:block;flex:1 1 auto;min-height:0;position:relative}
+body.site-mode #siteview{display:block;flex:1 1 auto;min-height:0;position:relative;overflow:hidden;margin-top:calc(var(--rise) * -1)}
 body.site-mode #back{display:flex}
+@media(max-width:700px){
+ :root{--rise:clamp(15px,3.4vw,27px)}
+ .disco{padding-bottom:calc(var(--rise) + 27px)}
+ .disco .hero{padding:7px 14px 0;gap:10px}
+ .disco .hero img{width:71px;max-width:71px}
+ .disco h1{font-size:clamp(20px,5.1vw,34px)}
+ .slope{height:26px;line-height:26px;bottom:5px}.slope .tr{font-size:12px}
+ .controls{gap:8px 13px;padding:8px 0}
+ .tab{font-size:11px;padding:6px 13px}
+ .mono{font-size:10.2px}
+ .btn{font-size:10.2px;padding:5px 9px}
+ .chip2{font-size:10.2px;padding:3.4px 11px}
+}
 </style></head><body>
 <header class="disco">
  <div class="hero">
@@ -105,7 +118,6 @@ body.site-mode #back{display:flex}
  <div class="controls">
   <div class="tabs" id="tabs"></div>
   <div class="tabs" id="sorts"></div>
-  <div class="tabs" id="ranges"></div>
   <div class="mono"><span id="count"></span></div>
  </div>
  <div class="srcs" id="srcs"></div>
@@ -125,7 +137,7 @@ const COLORS={diet:'#1E9E5A',deals:'#D9480F',sports:'#1B63E0',movies:'#7B2CBF',m
 const SLOTS=[['Breakfast',8],['Brunch',10],['Lunch',12],['Dinner',19],['Late dinner',22]];
 const DAY0=864e5;
 const WINS=[['1h',36e5,'1 hour'],['1d',DAY0,'1 day'],['1w',7*DAY0,'1 week'],['1m',30*DAY0,'1 month']];
-const SORTS=[['rank','Ranking'],['new','Newest']];
+const SORTS=[['rank','Popular'],['new','Latest']];
 // ===== helpers =====
 const DAY=864e5; let now=Date.now();
 const gc=(k,f)=>{const m=document.cookie.match('(?:^|; )'+k+'=([^;]*)');try{return m?JSON.parse(decodeURIComponent(m[1])):f}catch{return f}};
@@ -161,6 +173,7 @@ function extras(){const out=[],have=new Set(ITEMS.map(x=>x.id));
  for(const v of Object.values(LS('slickdeals_favorites',{})))if(v&&v.link&&!have.has('dl'+v.link.slice(-50))){const t=Date.parse(v.pubDateIso);out.push({id:'dl'+v.link.slice(-50),src:'deals',raw:v,rank:null,title:v.title,ts:isNaN(t)?now:t})}
  return out}
 // ===== loaders (each pushes items and re-renders as it arrives) =====
+let BOOT=true;   // while the sources are still loading, collect items and draw once (no tiles popping in, vanishing and shuffling)
 const add=(a)=>{ITEMS.push(...a);render()};
 async function monthLoad(ym){if(MDET[ym])return;MDET[ym]=new Map();const d=await J(RAW(SITE.movies)+`data/${ym}.json`);(d&&d.items||[]).forEach(m=>MDET[ym].set(m.id,m))}
 // a scores.json row can repeat an id (a re-dated release): the tile uses the row's own release date and scores, so it matches its rank
@@ -179,8 +192,9 @@ async function movies(){const sc=await J(RAW(SITE.movies)+'data/scores.json');if
 async function music(){const d=await J(RAW(SITE.music)+'data/all.json');if(!d)return;
  add(d.items.map((i,n)=>({id:'mu'+i.id,src:'music',raw:i,rank:i.rank||n+1,title:i.title,ts:i.date?dts(i.date):NaN})).filter(x=>!isNaN(x.ts)))}
 async function software(){for(const f of['github','steam','itunes']){const d=await J(RAW(SITE.software)+`data/${f}.json`);if(d)add(d.items.filter(i=>i.date).map((i,n)=>({id:'sw'+f+i.id,src:'software',f,raw:i,rank:(i.ranks&&(i.ranks['12']??i.ranks['0']))||n+1,title:i.title,ts:dts(i.date)})))}}
-async function deals(){try{const r=await fetch(RAW(SITE.deals)+'deals.xml?v='+Math.floor(now/3e5));const x=new DOMParser().parseFromString(await r.text(),'text/xml');
- const L=[...x.querySelectorAll('deal')].map(e=>{const g=t=>(e.querySelector(t)?.textContent||'').trim(),p=Date.parse(g('pubDateIso'));return{id:'dl'+g('link').slice(-50),src:'deals',title:g('title'),raw:{title:g('title'),link:g('link'),thumbnail:g('thumbnail'),rating:+g('rating')||0,description:g('description'),pubDateIso:g('pubDateIso')},ts:p}}).filter(i=>i.raw.link&&!isNaN(i.ts));
+const hid=s=>{let h=5381;for(let i=0;i<s.length;i++)h=(h*33^s.charCodeAt(i))>>>0;return h.toString(36)};
+async function deals(){try{const seenD=new Set();const r=await fetch(RAW(SITE.deals)+'deals.xml?v='+Math.floor(now/3e5));const x=new DOMParser().parseFromString(await r.text(),'text/xml');
+ const L=[...x.querySelectorAll('deal')].map(e=>{const g=t=>(e.querySelector(t)?.textContent||'').trim(),p=Date.parse(g('pubDateIso'));return{id:'dl'+hid(g('link')),src:'deals',title:g('title'),raw:{title:g('title'),link:g('link'),thumbnail:g('thumbnail'),rating:+g('rating')||0,description:g('description'),pubDateIso:g('pubDateIso')},ts:p}}).filter(i=>i.raw.link&&!isNaN(i.ts)&&!seenD.has(i.id)&&seenD.add(i.id));
  [...L].sort((a,b)=>b.raw.rating-a.raw.rating||b.ts-a.ts).forEach((i,k)=>{i.rank=k+1});add(L)}catch{}}
 async function sports(){const SP={nfl:'nfl',nhl:'nhl',mlb:'mlb',nba:'nba',ncaaf:'cfb',ncaamb:'ncaamb'};for(const l of Object.keys(SP)){const d=await J(RAW(SITE.sports)+`data/${l}_dashboard.json`);if(!d)continue;const out=[],disp=new Set((l=='nfl'||l=='ncaaf'?PS.selectDisplayWeeks:PS.selectDisplayDays)(d.weeks||[],d.current_week).map(x=>x.week));
  for(const w of d.weeks||[])for(const dy of w.days||[])for(const sl of dy.time_slots||[]){const gs=sl.games||[];if(!gs.length)continue;const pk=new Set([...gs].sort((a,b)=>(b.is_slot_pick?1:0)-(a.is_slot_pick?1:0)||(a.matchup_rank??1e9)-(b.matchup_rank??1e9)).slice(0,2));   // top 2 matchups per slot: the slot pick first, then the next best by matchup rank
@@ -206,12 +220,11 @@ const dietPlan=wk=>dietPlans().find(P=>String(P.tab)===String(wk));
 const dietSave=P=>LW(P.key,P.arr||P.week);
 function dietItems(lo,hi,todayOnly){const Ps=dietPlans();if(!Ps.length)return[];const all=[],seen=new Set(),t0=new Date(now);t0.setHours(0,0,0,0);
  for(const P of Ps){(P.week.days||[]).forEach((d,di)=>{const day=ISO(d&&d.date);if(!day)return;const dn=day.toLocaleDateString('en-US',{weekday:'long'}),ymd=`${day.getFullYear()}-${day.getMonth()+1}-${day.getDate()}`;
-  if(todayOnly&&day.getTime()!=t0.getTime())return;
+  const tm1=new Date(t0);tm1.setDate(tm1.getDate()+1);if(todayOnly?day.getTime()!=t0.getTime():(day.getTime()!=t0.getTime()&&day.getTime()!=tm1.getTime()))return;   // today's and tomorrow's meals only
   const slots=(d.slotOrder&&d.slotOrder.length?d.slotOrder:Object.keys(d.meals||{})).filter(sl=>d.meals&&d.meals[sl]&&SLOTH[sl]!=null);
   for(const sl of slots){const k=ymd+'|'+sl;if(seen.has(k))continue;seen.add(k);const t=new Date(day);t.setHours(SLOTH[sl],0,0,0);const m=d.meals[sl];
    all.push({id:`di${P.tab}-${di}-${sl}-${ymd}`,src:'diet',meal:m,wk:P.tab,day:di,slot:sl,desired:(d.pools&&d.pools[sl])||DS.getMealSource(m),title:DS.getMealName(m),ts:t.getTime(),today:day.getTime()==t0.getTime(),dn,dt:`${day.getMonth()+1}/${day.getDate()}/${day.getFullYear()}`})}})}
- if(todayOnly)return all;const nx=all.filter(x=>x.ts>=now).sort((a,b)=>a.ts-b.ts)[0],cl=[...all].sort((a,b)=>Math.abs(a.ts-now)-Math.abs(b.ts-now))[0],pv=all.filter(x=>x.ts<now&&x.today).sort((a,b)=>b.ts-a.ts)[0];   // always keep the next meal, the closest meal and today's latest past meal (an uneaten 7pm dinner still shows at 9pm)
- return all.filter(x=>(x.ts>=lo&&x.ts<=hi)||x===nx||x===cl||x===pv)}
+ return all}
 function dietSelect(wk,di,slot){const P=dietPlan(wk);if(!P)return;const d=P.week.days[di];if(!d||!d.meals[slot])return;
  try{localStorage.setItem('singleManPickRequest',JSON.stringify({tab:P.tab,dayIndex:di,slot,dayName:d.dayName,source:(d.pools&&d.pools[slot])||DS.getMealSource(d.meals[slot])}));localStorage.removeItem('singleManPickResult')}catch{alert("This browser won't let the page save the pick.");return}
  openSite('diet','products.html?pick=1')}
@@ -413,17 +426,17 @@ function liveList(W){const lo=now-W,hi=now+Math.min(W,DAY/2),eod=new Date(now);e
  GSET=new Set([...byRk('social_media').slice(0,20),...byRk('reddit').slice(0,25),...byRk('google').filter(i=>addT(i)>=now-36e5).slice(0,25),...byRk('google').slice(0,20)].map(i=>i.id));
  // Slickdeals ignore the time window: deals from the past 2 hours + the top 20 overall by rank (deduped)
  const DSET=new Set(ITEMS.filter(i=>i.src=='deals'&&(i.rank<=20||i.ts>=now-2*36e5)).map(i=>i.id));
- const all=ITEMS.filter(i=>i.src=='sports'?(i.board&&i.pick&&i.ts>=lo&&i.ts<=Math.min(now+W,eod.getTime())):i.src=='movies'?(i.rank!=null&&i.ts>=lo&&i.ts<=hi):i.src=='trends'?GSET.has(i.id):i.src=='deals'?DSET.has(i.id):(i.ts>=lo&&i.ts<=hi));
+ const all=ITEMS.filter(i=>i.src=='sports'?(i.board&&i.pick&&i.ts>=lo&&i.ts<=eod.getTime()+DAY):i.src=='movies'?(i.rank!=null&&i.ts>=lo&&i.ts<=hi):i.src=='trends'?GSET.has(i.id):i.src=='deals'?DSET.has(i.id):(i.ts>=lo&&i.ts<=hi));
  all.push(...dietItems(lo,now+W,false));return all}
 // the header line: titles of what landed on the board in the last hour
 function ticker(){let L=liveList(36e5).filter(i=>i.ts<=now&&i.ts>=now-36e5);if(!L.length)L=liveList(DAY).filter(i=>i.ts<=now);
  L.sort((a,b)=>b.ts-a.ts);const w=L.slice(0,40).map(i=>String(i.title||'').replace(/\s+/g,' ').trim().slice(0,44).toUpperCase()).filter(Boolean);
  if(!w.length)return;const t=w.join('  \u2605  ')+'  \u2605  ';if(t===ticker.last)return;ticker.last=t;const u=t.repeat(Math.max(1,Math.ceil(260/t.length)));document.getElementById('mq').textContent=u+u}
-function slope(){const hd=document.querySelector('.disco'),el=document.getElementById('slope');if(!hd||!el)return;const W=hd.clientWidth,rise=Math.round(Math.max(18,Math.min(32,W*.04)));
- hd.style.setProperty('--rise',rise+'px');const H=hd.offsetHeight,key=W+'x'+H;if(slope.k===key)return;slope.k=key;
- hd.style.clipPath=hd.style.webkitClipPath=`polygon(0 0,100% 0,100% ${H-rise}px,0 100%)`;
- el.style.width=Math.ceil(Math.hypot(W,rise)+30)+'px';el.style.top=(H-36)+'px';el.style.transform=el.style.webkitTransform=`rotate(${-Math.atan2(rise,W)}rad)`}
-function render(){if(!READY)return;now=Date.now();const W=WINS.find(w=>w[0]==S.win)[1],lo=now-W,hi=now+Math.min(W,DAY/2),fav=S.tab=='fav';let all;
+function slope(){const hd=document.querySelector('.disco'),el=document.getElementById('slope');if(!hd||!el)return;
+ const W=hd.clientWidth||innerWidth,mob=matchMedia('(max-width:700px)').matches,rise=Math.round(mob?Math.max(15,Math.min(27,W*.034)):Math.max(18,Math.min(32,W*.04)));
+ document.documentElement.style.setProperty('--rise',rise+'px');   // the banner's cut-off edge is pure CSS (clip-path with --rise), so it can't be left at a stale size on first load
+ el.style.width=Math.ceil(Math.hypot(W,rise)+30)+'px';el.style.transform=el.style.webkitTransform=`rotate(${-Math.atan2(rise,W)}rad)`}
+function render(){if(!READY||BOOT)return;now=Date.now();const W=30*DAY0,lo=now-W,hi=now+Math.min(W,DAY/2),fav=S.tab=='fav';let all;
  if(fav)all=[...ITEMS,...extras(),...dietItems(lo,hi,true)].filter(i=>isFav(i)||(i.src=='diet'&&i.today)||(i.src=='sports'&&PS.hasAnyPick(i.sport,i.raw.id)));
  else all=liveList(W);
  all=all.filter(i=>!S.hide.includes(i.src));
@@ -438,14 +451,13 @@ function render(){if(!READY)return;now=Date.now();const W=WINS.find(w=>w[0]==S.w
   if(S.sort=='new'){const dd=new Date(i.ts);dd.setHours(0,0,0,0);const dk=dd.getTime();if(dk!==lastDay){lastDay=dk;const df=Math.round((dk-t0.getTime())/DAY),dv=document.createElement('div');dv.className='daydiv';dv.innerHTML=(df==0?'Today':df==1?'Tomorrow':df==-1?'Yesterday':dd.toLocaleDateString('en-US',{weekday:'long'}))+`<small>${dd.toLocaleDateString('en-US',{month:'short',day:'numeric'})}</small>`;out.push(dv)}}
   const sub=subOf(i),h=host(i),html=`<div class="tile-body${i.src=='sports'?' light-theme':''}"${i.src=='sports'?` data-sport="${SPN[i.sport]||i.sport}"`:''}><a class="tl-top" href="#/${i.src}" title="Open ${NAMES[i.src]} here"><span>${NAMES[i.src]}${sub?` <em>\u00b7 ${sub}</em>`:''}</span><span class="tl-go">\u2197</span></a>${TILE[i.src](i)}</div>`;
   if(h._h!==html){h._r.innerHTML=html;h._h=html}h.dataset.src=i.src;h.classList.remove('w2');out.push(h)}
- document.getElementById('grid').replaceChildren(...out);ticker();
+ document.getElementById('grid').replaceChildren(...new Set(out));ticker();
  const mb=document.getElementById('moreBtn');mb.style.display=SHOWN<LASTTOTAL?'inline-block':'none';mb.textContent=`Load more (${LASTTOTAL-SHOWN} left)`;
  if(!render.t)render.t=setTimeout(()=>{render.t=0;const m=document.getElementById('more').getBoundingClientRect();if(m.top<innerHeight+900&&SHOWN<LASTTOTAL){SHOWN+=60;render()}},60)}
 function ui(){const btn=(a,k,v,n)=>`<button class="tab ${S[k]==v?'on':''}" data-${a}="${v}">${n}</button>`;
  document.getElementById('tabs').innerHTML=[['live','Live stream'],['fav','Favorites']].map(([v,n])=>btn('tab','tab',v,n)).join('');
  document.getElementById('sorts').innerHTML=SORTS.map(([v,n])=>btn('sort','sort',v,n)).join('');
- document.getElementById('srcs').innerHTML=['movies','music','software','trends','deals','sports','diet'].map(k=>`<button class="chip2 ${S.hide.includes(k)?'':'on'}" data-hide="${k}"${S.hide.includes(k)?'':` style="background:${COLORS[k]}"`}>${NAMES[k]}</button>`).join('');
- document.getElementById('ranges').innerHTML=WINS.map(([v,,n])=>btn('win','win',v,n)).join('')}
+ document.getElementById('srcs').innerHTML=['movies','music','software','trends','deals','sports','diet'].map(k=>`<button class="chip2 ${S.hide.includes(k)?'':'on'}" data-hide="${k}"${S.hide.includes(k)?'':` style="background:${COLORS[k]}"`}>${NAMES[k]}</button>`).join('');}
 document.addEventListener('click',e=>{const t=e.target,d=t.dataset;if(!d)return;let ch=0;
  if(d.tab){S.tab=d.tab;sc('ts_tab',S.tab);ch=1;if(S.tab=='fav')favMovies()}
  if(d.sort){S.sort=d.sort;sc('ts_sort2',S.sort);ch=1}
@@ -459,10 +471,14 @@ document.getElementById('moreBtn').onclick=more;
 
 // ===== menu + in-page viewer: the other sites open in an iframe under the Trendslope header =====
 let MAINY=0;const sv=document.getElementById('siteview');
+// each site's own mobile scale (its viewport tag's initial-scale), vs this page's 0.85
+const SITESCALE={movies:.8,music:.8,software:.8,trends:.75,deals:.6,sports:1,diet:1},PSCALE=.85,MOBILE=matchMedia('(hover:none) and (pointer:coarse)').matches;
 function openSite(key,sub){location.hash='#/'+key+(sub?'/'+sub:'')}
 // a fresh iframe each time (its first load replaces the blank page instead of adding browser-history steps)
 function showSite(key,sub){const url=SITEURL(key,sub);if(!document.body.classList.contains('site-mode')){MAINY=scrollY;document.body.classList.add('site-mode')}
- const cur=sv.firstElementChild;if(!cur||cur.dataset.u!==url){const f=document.createElement('iframe');f.dataset.u=url;f.title=NAMES[key];f.src=url;sv.replaceChildren(f)}
+ const cur=sv.firstElementChild;if(!cur||cur.dataset.u!==url){const f=document.createElement('iframe');f.dataset.u=url;f.title=NAMES[key];f.src=url;
+  const s=SITESCALE[key],k=s/PSCALE;if(MOBILE&&s&&Math.abs(k-1)>.01)f.style.cssText=`inset:auto;top:0;left:0;width:${100/k}%;height:${100/k}%;transform:scale(${k});transform-origin:0 0`;   // lay the site out at its own width, then scale it to fit
+  sv.replaceChildren(f)}
  slope.k='';scrollTo(0,0);slope();setTimeout(slope,60)}
 function showMain(){if(!document.body.classList.contains('site-mode'))return;document.body.classList.remove('site-mode');sv.replaceChildren();slope.k='';slope();render();scrollTo(0,MAINY)}
 function route(){const m=location.hash.match(/^#\/(\w+)(?:\/(.*))?$/);if(m&&SITE[m[1]])showSite(m[1],m[2]||'');else showMain()}
@@ -477,5 +493,6 @@ ui();slope();route();addEventListener('resize',slope);addEventListener('load',sl
 if(window.ResizeObserver)new ResizeObserver(slope).observe(document.querySelector('.disco'));if(window.visualViewport)visualViewport.addEventListener('resize',slope);
 document.fonts&&document.fonts.ready.then(slope);[300,1200,3000].forEach(ms=>setTimeout(slope,ms));
 addEventListener('storage',render);setInterval(render,60000);
-sheets();[movies,music,software,deals,sports,trends,diet,scores].forEach(f=>f());
+sheets();const bootDone=()=>{if(!BOOT)return;BOOT=false;render()};
+Promise.allSettled([movies,music,software,deals,sports,trends,diet,scores].map(f=>{try{return Promise.resolve(f())}catch(e){return Promise.resolve()}})).then(bootDone);setTimeout(bootDone,8000);   // first draw when everything has arrived (or after 8s)
 </script></body></html>
