@@ -485,7 +485,7 @@ const shiftHdr=px=>{const hd=document.querySelector('.disco'),b=document.getElem
  hd.style.top=t;b&&(b.style.marginTop=t);m&&(m.style.marginTop=t)};
 let FOLLOW=0;
 const sportsBg=()=>{try{return getEffectiveTheme()==='light'?'#f5f7fc':'#0d1322'}catch{return '#0d1322'}};   // Sports follows its own dark/light choice (same fb_theme setting, same origin)
-const SITESCALE={movies:.8,music:.8,software:.8,trends:.75,deals:.65,sports:.85,diet:1},PSCALE=1,MOBILE=matchMedia('(hover:none) and (pointer:coarse)').matches;
+const SITESCALE={movies:.8,music:.8,software:.8,trends:.75,deals:.69,sports:.85,diet:1},PSCALE=1,MOBILE=matchMedia('(hover:none) and (pointer:coarse)').matches;
 function openSite(key,sub){location.hash='#/'+key+(sub?'/'+sub:'')}
 // a fresh iframe each time (its first load replaces the blank page instead of adding browser-history steps)
 function showSite(key,sub){const url=SITEURL(key,sub);if(!document.body.classList.contains('site-mode')){MAINY=scrollY;document.body.classList.add('site-mode')}
