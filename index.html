@@ -204,7 +204,7 @@ async function deals(){try{const seenD=new Set();const r=await fetch(RAW(SITE.de
  const L=[...x.querySelectorAll('deal')].map(e=>{const g=t=>(e.querySelector(t)?.textContent||'').trim(),p=Date.parse(g('pubDateIso'));return{id:'dl'+hid(g('link')),src:'deals',title:g('title'),raw:{title:g('title'),link:g('link'),thumbnail:g('thumbnail'),rating:(EX.get(g('title'))?.rating??(+g('rating')||0)),expired:EX.get(g('title'))?.expired===true,description:g('description'),pubDateIso:g('pubDateIso')},ts:p}}).filter(i=>i.raw.link&&!isNaN(i.ts)&&!seenD.has(i.id)&&seenD.add(i.id));
  [...L].sort((a,b)=>b.raw.rating-a.raw.rating||b.ts-a.ts).forEach((i,k)=>{i.rank=k+1});add(L)}catch{}}
 async function sports(){const SP={nfl:'nfl',nhl:'nhl',mlb:'mlb',nba:'nba',ncaaf:'cfb',ncaamb:'ncaamb'};for(const l of Object.keys(SP)){const d=await J(RAW(SITE.sports)+`data/${l}_dashboard.json`);if(!d)continue;const out=[],disp=new Set((l=='nfl'||l=='ncaaf'?PS.selectDisplayWeeks:PS.selectDisplayDays)(d.weeks||[],d.current_week).map(x=>x.week));
- for(const w of d.weeks||[])for(const dy of w.days||[])for(const sl of dy.time_slots||[]){const gs=sl.games||[];if(!gs.length)continue;const pk=new Set([...gs].sort((a,b)=>(b.is_slot_pick?1:0)-(a.is_slot_pick?1:0)||(a.matchup_rank??1e9)-(b.matchup_rank??1e9)).slice(0,2));   // top 2 matchups per slot: the slot pick first, then the next best by matchup rank
+ for(const w of d.weeks||[])for(const dy of w.days||[]){const gs=(dy.time_slots||[]).flatMap(sl=>sl.games||[]);if(!gs.length)continue;const pk=new Set([...gs].sort((a,b)=>(a.matchup_rank??1e9)-(b.matchup_rank??1e9)||(b.is_slot_pick?1:0)-(a.is_slot_pick?1:0)).slice(0,2));   // the day's top 2 matchups (matchup_rank is ranked across the whole day), not one or two per time slot
   for(const g of gs){const t=Date.parse(g.start_time);if(!isNaN(t))out.push({id:'sp'+SP[l]+g.id,src:'sports',board:disp.has(w.week),pick:pk.has(g)?1:0,raw:g,sport:SP[l],rank:g.matchup_rank??null,title:`${g.away_abbr||g.away_team} @ ${g.home_abbr||g.home_team}`,ts:t})}}
  add(out)}}
 async function scores(){for(const sp of['nfl','nhl','mlb','nba','cfb','ncaamb'])SC[sp]=await PS.fetchScores(sp);render()}
@@ -485,16 +485,17 @@ const shiftHdr=px=>{const hd=document.querySelector('.disco'),b=document.getElem
  hd.style.top=t;b&&(b.style.marginTop=t);m&&(m.style.marginTop=t)};
 let FOLLOW=0;
 const sportsBg=()=>{try{return getEffectiveTheme()==='light'?'#f5f7fc':'#0d1322'}catch{return '#0d1322'}};   // Sports follows its own dark/light choice (same fb_theme setting, same origin)
-const SITESCALE={movies:.8,music:.8,software:.8,trends:.75,deals:.60,sports:.85,diet:1},PSCALE=1,MOBILE=matchMedia('(hover:none) and (pointer:coarse)').matches;
+const SITESCALE={movies:.8,music:.8,software:.8,trends:.75,deals:.6,sports:.85,diet:1},PSCALE=1,isMob=()=>matchMedia('(hover:none) and (pointer:coarse) and (max-width:700px)').matches;   // scaling is for phones only, never desktop
 function openSite(key,sub){location.hash='#/'+key+(sub?'/'+sub:'')}
 // a fresh iframe each time (its first load replaces the blank page instead of adding browser-history steps)
 function showSite(key,sub){const url=SITEURL(key,sub);if(!document.body.classList.contains('site-mode')){MAINY=scrollY;document.body.classList.add('site-mode')}
  const cur=sv.firstElementChild;if(!cur||cur.dataset.u!==url){const f=document.createElement('iframe');f.dataset.u=url;f.title=NAMES[key];f.src=url;
-  const s=SITESCALE[key],k=s/PSCALE;if(MOBILE&&s&&Math.abs(k-1)>.01)f.style.cssText=`inset:auto;top:0;left:0;width:${100/k}%;height:${100/k}%;transform:scale(${k});transform-origin:0 0`;   // lay the site out at its own width, then scale it to fit
-  const sk=(MOBILE&&s&&Math.abs(k-1)>.01)?k:1;
+  const s=SITESCALE[key],k=s/PSCALE,mobile=isMob();if(mobile&&s&&Math.abs(k-1)>.01)f.style.cssText=`inset:auto;top:0;left:0;width:${100/k}%;height:${100/k}%;transform:scale(${k});transform-origin:0 0`;   // lay the site out at its own width, then scale it to fit
+  const sk=(mobile&&s&&Math.abs(k-1)>.01)?k:1;
   cancelAnimationFrame(FOLLOW);
   f.addEventListener('load',()=>{try{const w=f.contentWindow,hd=document.querySelector('.disco'),root=w.document.documentElement;
-   const pad=()=>{const extra=document.body.dataset.site=='diet'?(slope.rise||0):0;root.style.paddingTop=((hd.offsetHeight-extra)/sk)+'px'};   // the site starts just under the banner...
+   const onBody=['movies','music','software','trends','deals'].includes(key),tgt=onBody?w.document.body:root,base=onBody?(parseFloat(w.getComputedStyle(tgt).paddingTop)||0):0;   // those sites paint their slight blue glow on <body>, so the space under the banner goes on <body> too (on <html> it would show plain white)
+   const pad=()=>{const extra=document.body.dataset.site=='diet'?(slope.rise||0):0;tgt.style.paddingTop=(base+(hd.offsetHeight-extra)/sk)+'px'};   // the site starts just under the banner...
    pad();addEventListener('resize',pad);
    cancelAnimationFrame(FOLLOW);
    const tick=()=>{try{const y=Math.max(0,w.scrollY||root.scrollTop||0);shiftHdr(Math.min(y*sk,hd.offsetHeight))}catch{}FOLLOW=requestAnimationFrame(tick)};tick()}catch{}});   // ...and the banner moves up exactly as far as the site scrolls (same origin; read every frame so it stays smooth even when iOS delays scroll events)
