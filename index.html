@@ -83,9 +83,11 @@ body.site-mode .disco{flex:none}
 .disco .hero img{width:84px;max-width:84px;border-width:2px;box-shadow:0 0 14px #ff2fa0}
 .disco h1{font-size:clamp(24px,6vw,40px);text-shadow:2px 2px 0 #ff2fa0,3px 3px 0 #1B63E0}
 .disco .tag{display:none}
-body.site-mode #siteview{display:block;flex:1 1 auto;min-height:0;position:relative;overflow:hidden}
+body.site-mode #siteview{display:block;flex:1 1 auto;min-height:0;position:relative;overflow:hidden;margin-top:calc(var(--hs,0px) * -1)}
+body.site-mode .disco{-webkit-transform:translate3d(0,calc(var(--hs,0px) * -1),0);transform:translate3d(0,calc(var(--hs,0px) * -1),0)}   /* the banner scrolls up and away as the site scrolls (--hs set from the frame's scroll) */
+body.site-mode #burger,body.site-mode #menu{margin-top:calc(var(--hs,0px) * -1)}
 body.site-mode #back{display:flex}
-body.site-mode[data-site=diet] #siteview{margin-top:calc(var(--rise) * -1)}   /* Single Man's Diet: its photo band runs up under the slanted edge */
+body.site-mode[data-site=diet] #siteview{margin-top:calc((var(--rise) + var(--hs,0px)) * -1)}   /* Single Man's Diet: its photo band runs up under the slanted edge */
 @media(max-width:700px){
  /* phones: a slim full-width bar, still slanted: tall on the left, short on the right (where the menu button sits) */
  :root{--rise:22px}
@@ -486,12 +488,14 @@ const SITESCALE={movies:.8,music:.8,software:.8,trends:.75,deals:.6,sports:1,die
 function openSite(key,sub){location.hash='#/'+key+(sub?'/'+sub:'')}
 // a fresh iframe each time (its first load replaces the blank page instead of adding browser-history steps)
 function showSite(key,sub){const url=SITEURL(key,sub);if(!document.body.classList.contains('site-mode')){MAINY=scrollY;document.body.classList.add('site-mode')}
- const cur=sv.firstElementChild;if(!cur||cur.dataset.u!==url){const f=document.createElement('iframe');f.dataset.u=url;f.title=NAMES[key];f.src=url;
+ const cur=sv.firstElementChild;if(!cur||cur.dataset.u!==url){const f=document.createElement('iframe');f.dataset.u=url;f.title=NAMES[key];f.src=url;document.documentElement.style.setProperty('--hs','0px');
   const s=SITESCALE[key],k=s/PSCALE;if(MOBILE&&s&&Math.abs(k-1)>.01)f.style.cssText=`inset:auto;top:0;left:0;width:${100/k}%;height:${100/k}%;transform:scale(${k});transform-origin:0 0`;   // lay the site out at its own width, then scale it to fit
+  const sk=(MOBILE&&s&&Math.abs(k-1)>.01)?k:1;
+  f.addEventListener('load',()=>{try{const w=f.contentWindow,hd=document.querySelector('.disco'),upd=()=>{const y=Math.max(0,w.scrollY||w.document.documentElement.scrollTop||0);document.documentElement.style.setProperty('--hs',Math.min(y*sk,hd.offsetHeight)+'px')};w.addEventListener('scroll',upd,{passive:true});upd()}catch{}});   // header scrolls up with the site (same origin, so we can follow the frame's scroll)
   if(key=='sports')f.addEventListener('load',()=>{try{const b=f.contentDocument.body,sync=()=>paint(getComputedStyle(b).getPropertyValue('--bg').trim()||(b.classList.contains('light-theme')?'#f5f7fc':'#0d1322'));sync();new MutationObserver(sync).observe(b,{attributes:true,attributeFilter:['class']})}catch{}});   // follow the theme toggle inside the frame
   sv.replaceChildren(f)}
  document.body.dataset.site=key;paint(key=='sports'?sportsBg():key=='diet'?'':SITEBG[key]);slope.k='';scrollTo(0,0);slope();setTimeout(slope,60)}
-function showMain(){if(!document.body.classList.contains('site-mode'))return;document.body.classList.remove('site-mode');delete document.body.dataset.site;paint('');sv.replaceChildren();slope.k='';slope();render();scrollTo(0,MAINY)}
+function showMain(){if(!document.body.classList.contains('site-mode'))return;document.body.classList.remove('site-mode');delete document.body.dataset.site;paint('');document.documentElement.style.removeProperty('--hs');sv.replaceChildren();slope.k='';slope();render();scrollTo(0,MAINY)}
 function route(){const m=location.hash.match(/^#\/(\w+)(?:\/(.*))?$/);if(m&&SITE[m[1]])showSite(m[1],m[2]||'');else showMain()}
 addEventListener('hashchange',route);
 document.getElementById('back').onclick=()=>{history.replaceState(null,'',location.pathname+location.search);route()};   // one click, whatever the site did inside its frame
