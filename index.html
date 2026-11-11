@@ -82,7 +82,7 @@ body.site-mode .disco{flex:none}
 .disco .hero img{width:84px;max-width:84px;border-width:2px;box-shadow:0 0 14px #ff2fa0}
 .disco h1{font-size:clamp(24px,6vw,40px);text-shadow:2px 2px 0 #ff2fa0,3px 3px 0 #1B63E0}
 .disco .tag{display:none}
-body.site-mode #siteview{display:block;flex:1 1 auto;min-height:0;position:relative;overflow:hidden}
+body.site-mode #siteview{display:block;position:fixed;left:0;right:0;top:0;bottom:0;overflow:hidden}   /* the site fills the whole screen; the banner sits on top and scrolls away */
 body.site-mode #back{display:flex}
 @media(max-width:700px){
  /* phones: a slim full-width bar, still slanted: tall on the left, short on the right (where the menu button sits) */
@@ -481,8 +481,9 @@ let MAINY=0;const sv=document.getElementById('siteview');
 // each site's own mobile scale (its viewport tag's initial-scale), vs this page's 1.0
 const SITEBG={movies:'#FFFFFF',music:'#FFFFFF',software:'#FFFFFF',trends:'#FFFFFF',deals:'#FFFFFF',sports:'#0d1322',diet:'#EEF2F0'},paint=c=>{document.documentElement.style.background=document.body.style.background=c||''};   // each site's own page color fills the strip under the slope, so the page drops in below it seamlessly
 // banner scroll-away: plain top / margin offsets (no transforms or custom properties, which iOS Safari mishandles together with clip-path)
-const shiftHdr=px=>{const hd=document.querySelector('.disco'),b=document.getElementById('burger'),m=document.getElementById('menu'),extra=document.body.dataset.site=='diet'?(slope.rise||0):0,t=px?-px+'px':'';
- hd.style.top=t;b&&(b.style.marginTop=t);m&&(m.style.marginTop=t);sv.style.marginTop=(px||extra)?-(px+extra)+'px':''};
+const shiftHdr=px=>{const hd=document.querySelector('.disco'),b=document.getElementById('burger'),m=document.getElementById('menu'),t=px?-px+'px':'';
+ hd.style.top=t;b&&(b.style.marginTop=t);m&&(m.style.marginTop=t)};
+let FOLLOW=0;
 const sportsBg=()=>{try{return getEffectiveTheme()==='light'?'#f5f7fc':'#0d1322'}catch{return '#0d1322'}};   // Sports follows its own dark/light choice (same fb_theme setting, same origin)
 const SITESCALE={movies:.8,music:.8,software:.8,trends:.75,deals:.6,sports:1,diet:1},PSCALE=1,MOBILE=matchMedia('(hover:none) and (pointer:coarse)').matches;
 function openSite(key,sub){location.hash='#/'+key+(sub?'/'+sub:'')}
@@ -491,11 +492,16 @@ function showSite(key,sub){const url=SITEURL(key,sub);if(!document.body.classLis
  const cur=sv.firstElementChild;if(!cur||cur.dataset.u!==url){const f=document.createElement('iframe');f.dataset.u=url;f.title=NAMES[key];f.src=url;
   const s=SITESCALE[key],k=s/PSCALE;if(MOBILE&&s&&Math.abs(k-1)>.01)f.style.cssText=`inset:auto;top:0;left:0;width:${100/k}%;height:${100/k}%;transform:scale(${k});transform-origin:0 0`;   // lay the site out at its own width, then scale it to fit
   const sk=(MOBILE&&s&&Math.abs(k-1)>.01)?k:1;
-  f.addEventListener('load',()=>{try{const w=f.contentWindow,hd=document.querySelector('.disco'),upd=()=>{const y=Math.max(0,w.scrollY||w.document.documentElement.scrollTop||0);shiftHdr(Math.min(y*sk,hd.offsetHeight))};w.addEventListener('scroll',upd,{passive:true});upd()}catch{}});   // header scrolls up with the site (same origin, so we can follow the frame's scroll)
+  cancelAnimationFrame(FOLLOW);
+  f.addEventListener('load',()=>{try{const w=f.contentWindow,hd=document.querySelector('.disco'),root=w.document.documentElement;
+   const pad=()=>{const extra=document.body.dataset.site=='diet'?(slope.rise||0):0;root.style.paddingTop=((hd.offsetHeight-extra)/sk)+'px'};   // the site starts just under the banner...
+   pad();addEventListener('resize',pad);
+   cancelAnimationFrame(FOLLOW);
+   const tick=()=>{try{const y=Math.max(0,w.scrollY||root.scrollTop||0);shiftHdr(Math.min(y*sk,hd.offsetHeight))}catch{}FOLLOW=requestAnimationFrame(tick)};tick()}catch{}});   // ...and the banner moves up exactly as far as the site scrolls (same origin; read every frame so it stays smooth even when iOS delays scroll events)
   if(key=='sports')f.addEventListener('load',()=>{try{const b=f.contentDocument.body,sync=()=>paint(getComputedStyle(b).getPropertyValue('--bg').trim()||(b.classList.contains('light-theme')?'#f5f7fc':'#0d1322'));sync();new MutationObserver(sync).observe(b,{attributes:true,attributeFilter:['class']})}catch{}});   // follow the theme toggle inside the frame
   sv.replaceChildren(f)}
  document.body.dataset.site=key;paint(key=='sports'?sportsBg():key=='diet'?'':SITEBG[key]);slope.k='';scrollTo(0,0);slope();shiftHdr(0);setTimeout(slope,60)}
-function showMain(){if(!document.body.classList.contains('site-mode'))return;document.body.classList.remove('site-mode');delete document.body.dataset.site;paint('');shiftHdr(0);sv.replaceChildren();slope.k='';slope();render();scrollTo(0,MAINY)}
+function showMain(){if(!document.body.classList.contains('site-mode'))return;document.body.classList.remove('site-mode');delete document.body.dataset.site;cancelAnimationFrame(FOLLOW);paint('');shiftHdr(0);sv.replaceChildren();slope.k='';slope();render();scrollTo(0,MAINY)}
 function route(){const m=location.hash.match(/^#\/(\w+)(?:\/(.*))?$/);if(m&&SITE[m[1]])showSite(m[1],m[2]||'');else showMain()}
 addEventListener('hashchange',route);
 document.getElementById('back').onclick=()=>{history.replaceState(null,'',location.pathname+location.search);route()};   // one click, whatever the site did inside its frame
