@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Trendslope</title>
 <link rel="icon" type="image/gif" href="favicon.gif">
 <link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700;900&family=Permanent+Marker&display=swap" rel="stylesheet">
@@ -12,7 +12,7 @@
 html,body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui,sans-serif}
 button{font-family:inherit;cursor:pointer}
 /* boogie header */
-.disco{position:relative;overflow:hidden;color:#fff;background:linear-gradient(120deg,#2a0a4a,#6a11cb 35%,#ff2fa0 70%,#ffb347);background-size:300% 300%;animation:shift 12s ease infinite;z-index:5;-webkit-clip-path:polygon(0 0,100% 0,100% calc(100% - var(--rise)),0 100%);clip-path:polygon(0 0,100% 0,100% calc(100% - var(--rise)),0 100%);padding-bottom:calc(var(--rise) + 40px)}
+.disco{position:relative;overflow:hidden;color:#fff;background:linear-gradient(120deg,#2a0a4a,#6a11cb 35%,#ff2fa0 70%,#ffb347);background-size:300% 300%;animation:shift 12s ease infinite;z-index:5;-webkit-transform:translateZ(0);transform:translateZ(0);-webkit-clip-path:polygon(0 0,100% 0,100% calc(100% - var(--rise)),0 100%);clip-path:polygon(0 0,100% 0,100% calc(100% - var(--rise)),0 100%);padding-bottom:calc(var(--rise) + 40px)}
 @keyframes shift{50%{background-position:100% 50%}}
 .disco:before{content:"";position:absolute;inset:0;background:radial-gradient(circle,rgba(255,255,255,.35) 1px,transparent 2px) 0 0/26px 26px;animation:twinkle 2.4s linear infinite;opacity:.5}
 @keyframes twinkle{50%{opacity:.15}}
@@ -93,8 +93,11 @@ body.site-mode[data-site=diet] #siteview{margin-top:calc(var(--rise) * -1)}   /*
  .disco .hero img{width:71px;max-width:71px}
  .disco h1{font-size:clamp(20px,5.1vw,34px)}
  .slope{height:26px;line-height:26px;bottom:5px}.slope .tr{font-size:12px}
- .controls{gap:8px 13px;padding:8px 0}
- .tab{font-size:11px;padding:6px 13px}
+ main{padding-left:14px;padding-right:14px}
+ .controls{gap:6px 8px;padding:8px 0;justify-content:flex-start;flex-wrap:nowrap}
+ .controls .tabs{flex-wrap:nowrap;flex:0 0 auto;gap:2px;padding:2px}
+ .controls .mono{margin-left:auto;white-space:nowrap}
+ .tab{font-size:11px;padding:6px 9px;white-space:nowrap}
  .mono{font-size:10.2px}
  .btn{font-size:10.2px;padding:5px 9px}
  .chip2{font-size:10.2px;padding:3.4px 11px}
@@ -473,10 +476,10 @@ document.getElementById('moreBtn').onclick=more;
 
 // ===== menu + in-page viewer: the other sites open in an iframe under the Trendslope header =====
 let MAINY=0;const sv=document.getElementById('siteview');
-// each site's own mobile scale (its viewport tag's initial-scale), vs this page's 0.85
+// each site's own mobile scale (its viewport tag's initial-scale), vs this page's 1.0
 const SITEBG={movies:'#FFFFFF',music:'#FFFFFF',software:'#FFFFFF',trends:'#FFFFFF',deals:'#FFFFFF',sports:'#0d1322',diet:'#EEF2F0'},paint=c=>{document.documentElement.style.background=document.body.style.background=c||''};   // each site's own page color fills the strip under the slope, so the page drops in below it seamlessly
 const sportsBg=()=>{try{return getEffectiveTheme()==='light'?'#f5f7fc':'#0d1322'}catch{return '#0d1322'}};   // Sports follows its own dark/light choice (same fb_theme setting, same origin)
-const SITESCALE={movies:.8,music:.8,software:.8,trends:.75,deals:.6,sports:1,diet:1},PSCALE=.85,MOBILE=matchMedia('(hover:none) and (pointer:coarse)').matches;
+const SITESCALE={movies:.8,music:.8,software:.8,trends:.75,deals:.6,sports:1,diet:1},PSCALE=1,MOBILE=matchMedia('(hover:none) and (pointer:coarse)').matches;
 function openSite(key,sub){location.hash='#/'+key+(sub?'/'+sub:'')}
 // a fresh iframe each time (its first load replaces the blank page instead of adding browser-history steps)
 function showSite(key,sub){const url=SITEURL(key,sub);if(!document.body.classList.contains('site-mode')){MAINY=scrollY;document.body.classList.add('site-mode')}
@@ -496,8 +499,12 @@ document.addEventListener('click',e=>{if(!menu.contains(e.target)&&!burger.conta
 addEventListener('keydown',e=>{if(e.key==='Escape')closeMenu()});
 ui();slope();route();addEventListener('resize',slope);addEventListener('load',slope);addEventListener('orientationchange',()=>setTimeout(slope,250));
 if(window.ResizeObserver)new ResizeObserver(slope).observe(document.querySelector('.disco'));if(window.visualViewport)visualViewport.addEventListener('resize',slope);
-document.fonts&&document.fonts.ready.then(slope);[300,1200,3000].forEach(ms=>setTimeout(slope,ms));
+// iOS/Android sometimes leave the clipped, animated banner unpainted on first load until something forces a re-layout (a zoom, a menu tap). Do that ourselves, a few times early on.
+const kick=()=>{const h=document.querySelector('.disco');if(!h)return;h.style.clipPath=h.style.webkitClipPath='none';void h.offsetHeight;h.style.clipPath=h.style.webkitClipPath='';slope()};
+requestAnimationFrame(()=>requestAnimationFrame(kick));[150,500,1200,2500,5000].forEach(ms=>setTimeout(kick,ms));
+addEventListener('load',kick);addEventListener('pageshow',kick);document.addEventListener('visibilitychange',()=>{if(!document.hidden)kick()});
+document.fonts&&document.fonts.ready.then(()=>{slope();kick()});[300,1200,3000].forEach(ms=>setTimeout(slope,ms));
 addEventListener('storage',render);setInterval(render,60000);
-sheets();const bootDone=()=>{if(!BOOT)return;BOOT=false;render()};
+sheets();const bootDone=()=>{if(!BOOT)return;BOOT=false;render();kick()};
 Promise.allSettled([movies,music,software,deals,sports,trends,diet,scores].map(f=>{try{return Promise.resolve(f())}catch(e){return Promise.resolve()}})).then(bootDone);setTimeout(bootDone,8000);   // first draw when everything has arrived (or after 8s)
 </script></body></html>
