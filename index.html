@@ -210,7 +210,8 @@ function dietItems(lo,hi,todayOnly){const Ps=dietPlans();if(!Ps.length)return[];
   const slots=(d.slotOrder&&d.slotOrder.length?d.slotOrder:Object.keys(d.meals||{})).filter(sl=>d.meals&&d.meals[sl]&&SLOTH[sl]!=null);
   for(const sl of slots){const k=ymd+'|'+sl;if(seen.has(k))continue;seen.add(k);const t=new Date(day);t.setHours(SLOTH[sl],0,0,0);const m=d.meals[sl];
    all.push({id:`di${P.tab}-${di}-${sl}-${ymd}`,src:'diet',meal:m,wk:P.tab,day:di,slot:sl,desired:(d.pools&&d.pools[sl])||DS.getMealSource(m),title:DS.getMealName(m),ts:t.getTime(),today:day.getTime()==t0.getTime(),dn,dt:`${day.getMonth()+1}/${day.getDate()}/${day.getFullYear()}`})}})}
- if(todayOnly)return all;const nx=all.filter(x=>x.ts>=now).sort((a,b)=>a.ts-b.ts)[0];return all.filter(x=>(x.ts>=lo&&x.ts<=hi)||x===nx)}
+ if(todayOnly)return all;const nx=all.filter(x=>x.ts>=now).sort((a,b)=>a.ts-b.ts)[0],cl=[...all].sort((a,b)=>Math.abs(a.ts-now)-Math.abs(b.ts-now))[0],pv=all.filter(x=>x.ts<now&&x.today).sort((a,b)=>b.ts-a.ts)[0];   // always keep the next meal, the closest meal and today's latest past meal (an uneaten 7pm dinner still shows at 9pm)
+ return all.filter(x=>(x.ts>=lo&&x.ts<=hi)||x===nx||x===cl||x===pv)}
 function dietSelect(wk,di,slot){const P=dietPlan(wk);if(!P)return;const d=P.week.days[di];if(!d||!d.meals[slot])return;
  try{localStorage.setItem('singleManPickRequest',JSON.stringify({tab:P.tab,dayIndex:di,slot,dayName:d.dayName,source:(d.pools&&d.pools[slot])||DS.getMealSource(d.meals[slot])}));localStorage.removeItem('singleManPickResult')}catch{alert("This browser won't let the page save the pick.");return}
  openSite('diet','products.html?pick=1')}
@@ -410,7 +411,9 @@ function liveList(W){const lo=now-W,hi=now+Math.min(W,DAY/2),eod=new Date(now);e
  // trending feeds ignore the time window: social = top 20, Reddit = top 25 (by rank); Google = past hour (up to 25) + top 20 of the whole JSON, deduped
  const byRk=k=>ITEMS.filter(i=>i.src=='trends'&&i.sk==k).sort((a,b)=>(a.rank||1e6)-(b.rank||1e6)),addT=i=>{const t=Date.parse(i.raw.started_trending||i.raw.first_seen);return isNaN(t)?i.ts:t};
  GSET=new Set([...byRk('social_media').slice(0,20),...byRk('reddit').slice(0,25),...byRk('google').filter(i=>addT(i)>=now-36e5).slice(0,25),...byRk('google').slice(0,20)].map(i=>i.id));
- const all=ITEMS.filter(i=>i.src=='sports'?(i.board&&i.pick&&i.ts>=lo&&i.ts<=Math.min(now+W,eod.getTime())):i.src=='movies'?(i.rank!=null&&i.ts>=lo&&i.ts<=hi):i.src=='trends'?GSET.has(i.id):(i.ts>=lo&&i.ts<=hi));
+ // Slickdeals ignore the time window: deals from the past 2 hours + the top 20 overall by rank (deduped)
+ const DSET=new Set(ITEMS.filter(i=>i.src=='deals'&&(i.rank<=20||i.ts>=now-2*36e5)).map(i=>i.id));
+ const all=ITEMS.filter(i=>i.src=='sports'?(i.board&&i.pick&&i.ts>=lo&&i.ts<=Math.min(now+W,eod.getTime())):i.src=='movies'?(i.rank!=null&&i.ts>=lo&&i.ts<=hi):i.src=='trends'?GSET.has(i.id):i.src=='deals'?DSET.has(i.id):(i.ts>=lo&&i.ts<=hi));
  all.push(...dietItems(lo,now+W,false));return all}
 // the header line: titles of what landed on the board in the last hour
 function ticker(){let L=liveList(36e5).filter(i=>i.ts<=now&&i.ts>=now-36e5);if(!L.length)L=liveList(DAY).filter(i=>i.ts<=now);
@@ -425,7 +428,8 @@ function render(){if(!READY)return;now=Date.now();const W=WINS.find(w=>w[0]==S.w
  else all=liveList(W);
  all=all.filter(i=>!S.hide.includes(i.src));
  if(S.sort=='new')all.sort((a,b)=>b.ts-a.ts);
- else{const dk=x=>x.ts>=now?x.ts-now:1e13+(now-x.ts);all.filter(i=>i.src=='diet').sort((a,b)=>dk(a)-dk(b)).forEach((x,k)=>{x.rk=k+1});all.forEach(i=>{if(i.src!='diet')i.rk=i.rank||1e6});
+ else{const dI=all.filter(i=>i.src=='diet'),cl=[...dI].sort((a,b)=>Math.abs(a.ts-now)-Math.abs(b.ts-now))[0],dk=x=>x===cl?-1:x.ts>cl.ts?x.ts-cl.ts:1e13+(cl.ts-x.ts);   // closest meal first (before or after now), then forward in time only; earlier meals trail
+  dI.sort((a,b)=>dk(a)-dk(b)).forEach((x,k)=>{x.rk=k+1});all.forEach(i=>{if(i.src!='diet')i.rk=i.rank||1e6});
   all.sort((a,b)=>a.rk-b.rk||b.ts-a.ts)}   // ranking order; the most recent wins a tie
  LASTTOTAL=all.length;render.all=all;document.getElementById('count').textContent=all.length+' tiles';
  const list=all.slice(0,SHOWN);CUR.clear();list.forEach(i=>CUR.set(i.id,i));
