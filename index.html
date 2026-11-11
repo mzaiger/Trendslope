@@ -76,12 +76,13 @@ body{position:relative}
 #back:hover{border-color:#ff2fa0;color:#ffd0ec}
 #back svg{width:.95rem;height:.95rem;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 body.site-mode{height:100vh;height:100dvh;display:flex;flex-direction:column;overflow:hidden}
-body.site-mode main,body.site-mode #menu,body.site-mode #burger{display:none}
-body.site-mode .disco{flex:none;padding-bottom:calc(var(--rise) + 32px)}
-body.site-mode .hero{padding:8px 16px 0;gap:12px;flex-wrap:nowrap}
-body.site-mode .hero img{width:84px;max-width:84px;border-width:2px;box-shadow:0 0 14px #ff2fa0}
-body.site-mode h1{font-size:clamp(24px,6vw,40px);text-shadow:2px 2px 0 #ff2fa0,3px 3px 0 #1B63E0}
-body.site-mode .tag{display:none}
+body.site-mode main{display:none}
+body.site-mode .disco{flex:none}
+.disco{padding-bottom:calc(var(--rise) + 32px)}
+.disco .hero{padding:8px 16px 0;gap:12px;flex-wrap:nowrap}
+.disco .hero img{width:84px;max-width:84px;border-width:2px;box-shadow:0 0 14px #ff2fa0}
+.disco h1{font-size:clamp(24px,6vw,40px);text-shadow:2px 2px 0 #ff2fa0,3px 3px 0 #1B63E0}
+.disco .tag{display:none}
 body.site-mode #siteview{display:block;flex:1 1 auto;min-height:0;position:relative}
 body.site-mode #back{display:flex}
 </style></head><body>
@@ -406,14 +407,16 @@ function host(i){let h=HOSTS.get(i.id);if(h)return h;h=document.createElement('d
  PS.attachPickHandlers(r,render);PS.attachGeminiHandlers(r);h._r=r;HOSTS.set(i.id,h);return h}
 // what the Live stream holds for a time filter W (before the source chips)
 function liveList(W){const lo=now-W,hi=now+Math.min(W,DAY/2),eod=new Date(now);eod.setHours(23,59,59,999);
- GSET=new Set(ITEMS.filter(i=>i.src=='trends'&&i.sk=='google'&&i.ts>=now-36e5).sort((a,b)=>(a.rank||1e6)-(b.rank||1e6)).slice(0,20).map(i=>i.id));
- const all=ITEMS.filter(i=>i.src=='sports'?(i.board&&i.pick&&i.ts>=lo&&i.ts<=Math.min(now+W,eod.getTime())):i.src=='movies'?(i.rank!=null&&i.ts>=lo&&i.ts<=hi):(i.src=='trends'&&i.sk=='google')?(GSET.has(i.id)&&i.ts>=lo&&i.ts<=hi):(i.ts>=lo&&i.ts<=hi));
+ // trending feeds ignore the time window: social = top 20, Reddit = top 25 (by rank); Google = past hour (up to 25) + top 20 of the whole JSON, deduped
+ const byRk=k=>ITEMS.filter(i=>i.src=='trends'&&i.sk==k).sort((a,b)=>(a.rank||1e6)-(b.rank||1e6)),addT=i=>{const t=Date.parse(i.raw.started_trending||i.raw.first_seen);return isNaN(t)?i.ts:t};
+ GSET=new Set([...byRk('social_media').slice(0,20),...byRk('reddit').slice(0,25),...byRk('google').filter(i=>addT(i)>=now-36e5).slice(0,25),...byRk('google').slice(0,20)].map(i=>i.id));
+ const all=ITEMS.filter(i=>i.src=='sports'?(i.board&&i.pick&&i.ts>=lo&&i.ts<=Math.min(now+W,eod.getTime())):i.src=='movies'?(i.rank!=null&&i.ts>=lo&&i.ts<=hi):i.src=='trends'?GSET.has(i.id):(i.ts>=lo&&i.ts<=hi));
  all.push(...dietItems(lo,now+W,false));return all}
 // the header line: titles of what landed on the board in the last hour
 function ticker(){let L=liveList(36e5).filter(i=>i.ts<=now&&i.ts>=now-36e5);if(!L.length)L=liveList(DAY).filter(i=>i.ts<=now);
  L.sort((a,b)=>b.ts-a.ts);const w=L.slice(0,40).map(i=>String(i.title||'').replace(/\s+/g,' ').trim().slice(0,44).toUpperCase()).filter(Boolean);
  if(!w.length)return;const t=w.join('  \u2605  ')+'  \u2605  ';if(t===ticker.last)return;ticker.last=t;const u=t.repeat(Math.max(1,Math.ceil(260/t.length)));document.getElementById('mq').textContent=u+u}
-function slope(){const hd=document.querySelector('.disco'),el=document.getElementById('slope');if(!hd||!el)return;const W=hd.clientWidth,rise=document.body.classList.contains('site-mode')?Math.round(Math.max(18,Math.min(32,W*.04))):Math.round(Math.max(36,Math.min(90,W*.06)));
+function slope(){const hd=document.querySelector('.disco'),el=document.getElementById('slope');if(!hd||!el)return;const W=hd.clientWidth,rise=Math.round(Math.max(18,Math.min(32,W*.04)));
  hd.style.setProperty('--rise',rise+'px');const H=hd.offsetHeight,key=W+'x'+H;if(slope.k===key)return;slope.k=key;
  hd.style.clipPath=hd.style.webkitClipPath=`polygon(0 0,100% 0,100% ${H-rise}px,0 100%)`;
  el.style.width=Math.ceil(Math.hypot(W,rise)+30)+'px';el.style.top=(H-36)+'px';el.style.transform=el.style.webkitTransform=`rotate(${-Math.atan2(rise,W)}rad)`}
