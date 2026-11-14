@@ -16,11 +16,11 @@ Each tile type has its own rules:
 | --- | --- | --- |
 | **Sports** | `SportsDashboard` | NFL, NHL, MLB, NBA, college football and college basketball. The day's top 2 matchups per sport (by `matchup_rank`), through the end of tomorrow. Live scores are added to tiles. |
 | **Movies** | `Movies` | The Movies site's overall board for the last 3 months. A movie is ranked if it has a box office, or both a Rotten Tomatoes score and an IMDb rating, and the tile date is the release date. |
-| **Music** | `Music` | The Music site's all-sources list. |
+| **Music** | `Music` | The Music site's all-sources list. Each link button (Spotify, Apple, Video, Billboard) shows that service's favicon. |
 | **Software** | `Software` | Top GitHub (stars), Steam (most played) and iTunes (Apple ranking) lists. |
 | **Stocks** | `Stocks` | The Stocks site's overall board (its All tab): stocks that are on at least 2 of its 3 rankings (Gainers, Most Active, Buzz), in that board's order. The tile time is when the stock started trending (the "35m ago" on the tile). The board has no time window of its own: it is the latest snapshot, refreshed every 15 minutes on business days. |
-| **Trending Topics** | `TrendingTopics` | Social media: top 20. Reddit: top 25. Google: everything added in the past hour (up to 25) plus the top 20 overall, each by rank. Google and Reddit tiles show the site's favicon next to the link; Social Media tiles show a row of five favicon-only search links (Facebook, X, Threads, Bluesky, Mastodon) for the topic. |
-| **Slickdeals** | `SlickDealsTracker` | Every deal from the past 2 hours plus the top 20 overall by rating. Expired deals show an "Expired" badge, and the rating comes from `expired.xml` when it has one. |
+| **Trending Topics** | `TrendingTopics` | Social media: top 20. Reddit: top 25. Google: everything added in the past hour (up to 25) plus the top 20 overall, each by rank. Google and Reddit tiles show the site's favicon in a boxed button; Social Media tiles show a row of five favicon-only search links (Facebook, X, Threads, Bluesky, Mastodon) for the topic. |
+| **Slickdeals** | `SlickDealsTracker` | Every deal from the past 2 hours plus the top 20 overall by rating. Expired deals show an "Expired" badge, and the rating comes from `expired.xml` when it has one. Each tile ends with a centered, boxed "View deal" button with the Slickdeals favicon. |
 | **Single Man's Diet** | `SingleManDiet` | Today's and tomorrow's meals from the latest week saved in the planner. On Popular, the meal closest to now comes first, then the rest go forward in time. |
 
 The trending, deals and diet feeds ignore the date filter on purpose. They always show their own top lists so no one source takes over the page. Everything else uses a fixed window of the last 30 days (plus the next 12 hours). The old 1 hour / 1 day / 1 week / 1 month buttons were removed.
