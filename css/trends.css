@@ -188,6 +188,16 @@ a.stretch:focus-visible::after{ outline: 3px solid var(--blue); outline-offset: 
 .rows-fav-section{ background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px 12px; margin-bottom: 12px; grid-column: 1 / -1; }
 .sentinel{ text-align: center; color: var(--text-dim); font-size: 12px; padding: 18px 0 30px; }
 .foot{ margin-top: 28px; padding-top: 14px; border-top: 1px solid var(--line); font-size: 12px; line-height: 1.5; color: var(--text-dim); }
+.fav-ico{ width: 18px; height: 18px; border-radius: 3px; flex: none; display: block; }
+.go-link{ position: relative; z-index: 2; display: inline-flex; align-items: center; gap: 6px; color: var(--blue); text-decoration: none; white-space: nowrap; }
+.go-link:hover span{ text-decoration: underline; }
+.net-icons{ position: relative; z-index: 2; display: inline-flex; align-items: center; gap: 6px; }
+.net-icons a{ display: inline-flex; padding: 4px; border: 1px solid transparent; border-radius: 6px; transition: border-color 0.15s ease, background 0.15s ease; }
+.net-icons a:hover,.net-icons a:focus-visible{ border-color: var(--blue); background: var(--panel); outline: none; }
+.icons-row{ display: block; }
+.net-icons.wide{ display: flex; width: 100%; gap: 4px; }
+.net-icons.wide a{ flex: 1; justify-content: center; padding: 6px 0; }
+.net-icons.wide .fav-ico{ width: 24px; height: 24px; border-radius: 5px; }
 @media (max-width: 700px){header,main{ padding-left: 14px; padding-right: 14px; }
 .grid,.fav-box-items{ grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }}
 @media (prefers-reduced-motion: reduce){.card{ transition: none; }}
