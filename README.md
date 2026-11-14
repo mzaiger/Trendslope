@@ -1,6 +1,6 @@
 # Trendslope
 
-One page that pulls the best of my other sites into a single live feed: what's trending, the day's top games, new movies, deals, music, software, and today's meals. Tap a tile to open it, tap the star to save it, or open any of the full sites from the menu without leaving the page.
+One page that pulls the best of my other sites into a single live feed: what's trending, the day's top games, new movies, deals, music, software, stocks, and today's meals. Tap a tile to open it, tap the star to save it, or open any of the full sites from the menu without leaving the page.
 
 It is a plain static site: one `index.html`, a few stylesheets, and no build step.
 
@@ -18,6 +18,7 @@ The page has two tabs, **Live Stream** and **Favorites**, and a **Popular / Late
 | **Movies** | `Movies` | The Movies site's overall board for the last 3 months. A movie is ranked if it has a box office, or both a Rotten Tomatoes score and an IMDb rating, and the tile date is the release date. |
 | **Music** | `Music` | The Music site's all-sources list. |
 | **Software** | `Software` | Top GitHub (stars), Steam (most played) and iTunes (Apple ranking) lists. |
+| **Stocks** | `Stocks` | The Stocks site's overall board (its All tab): stocks that are on at least 2 of its 3 rankings (Gainers, Most Active, Buzz), in that board's order. The tile time is when the stock started trending (the "35m ago" on the tile). The board has no time window of its own: it is the latest snapshot, refreshed every 15 minutes on business days. |
 | **Single Man's Diet** | `SingleManDiet` | Today's and tomorrow's meals from the latest week saved in the planner. On Popular, the meal closest to now comes first, then the rest go forward in time. |
 
 The trending, deals and diet feeds ignore the date filter on purpose. They always show their own top lists so no one source takes over the page. Everything else uses a fixed window of the last 30 days (plus the next 12 hours). The old 1 hour / 1 day / 1 week / 1 month buttons were removed.
@@ -32,21 +33,22 @@ The trending, deals and diet feeds ignore the date filter on purpose. They alway
 
 ## Favorites and saved settings
 
-- Stars are stored per site in the browser (`movies_favs`, `music_favs`, and so on), using the same storage as each site, so a favorite saved here shows up there and the other way round.
+- Stars are stored per site in the browser (`movies_favs`, `music_favs`, `stocks_favs` and so on), using the same storage as each site, so a favorite saved here shows up there and the other way round.
 - Sports picks use the same `pick_<sport>_<id>` cookies as the Sports Dashboard.
+- A starred stock only shows on the Favorites tab while it is on the Stocks board (the Stocks site shows it greyed out when it is not).
 - Single Man's Diet meals come from the weekly plan saved by the planner in the same browser. If no plan with dates has been saved, no diet tiles show.
 - Your last tab, sort and hidden sources are kept in cookies (`ts_tab`, `ts_sort2`, `ts_hide`) for a year.
 
 ## Mobile
 
 - On screens 700px wide or less, the banner becomes a slim slanted bar with a small menu button, and the controls and fonts are smaller.
-- On touch phones, each site opens in the frame at its own mobile scale. A viewport tag inside a frame is ignored, so Trendslope sets the scale itself: Movies, Music and Software 0.8, Trending Topics 0.75, Slickdeals 0.6, Sports 0.85, Single Man's Diet 1.0. Desktop and tablet are not scaled.
+- On touch phones, each site opens in the frame at its own mobile scale. A viewport tag inside a frame is ignored, so Trendslope sets the scale itself: Movies, Music, Software and Stocks 0.8, Trending Topics 0.75, Slickdeals 0.6, Sports 0.85, Single Man's Diet 1.0. Desktop and tablet are not scaled.
 
 ## Files
 
 ```
 index.html      the whole app (markup, logic, banner, menu, viewer)
-css/            per-source tile styles: deals, diet, fonts, movies, music, software, sports, trends
+css/            per-source tile styles: deals, diet, fonts, movies, music, software, sports, stocks, trends
 diet-shared.js  copy of the Single Man's Diet planner code, used to build the meal tiles
 picks-store.js  copy of the Sports Dashboard picks and scores code
 runner.gif      banner image
@@ -64,6 +66,8 @@ Settings are constants near the top of the script in `index.html`:
 - `SITEBASE`: where the full sites are served from (`https://marcitech.is-a.dev/`). Set `window.TS_BASE` before the script to override it.
 - `COLORS` and `NAMES`: each source's chip color and label.
 - `SITESCALE`: the mobile scale used when a site opens in the frame.
+
+The Stocks tile is drawn by `stkTile()` in `index.html` and styled by `css/stocks.css`, which is the Stocks site's own stylesheet (`:root` became `:host`). If the tile changes on the Stocks site, copy its `<style>` block over `css/stocks.css` the same way and update `stkTile()`.
 
 To add a source: add it to `SITE`, `COLORS` and `NAMES`, write a loader that calls `add([...])` with items shaped like the others, add a tile renderer, and put its styles in `css/`.
 

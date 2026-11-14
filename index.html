@@ -120,7 +120,7 @@ body.site-mode #back{display:flex}
 </header>
 <button id="burger" aria-label="Menu" aria-expanded="false" aria-controls="menu"><span></span><span></span><span></span></button>
 <nav id="menu" aria-label="Sites">
- <a href="#/movies"><i style="background:#7B2CBF"></i>Movies</a><a href="#/music"><i style="background:#E0359B"></i>Music</a><a href="#/software"><i style="background:#0B7285"></i>Software</a><a href="#/trends"><i style="background:#F08C00"></i>Trending Topics</a><a href="#/deals"><i style="background:#D9480F"></i>Slickdeals</a><a href="#/sports"><i style="background:#1B63E0"></i>Sports</a><a href="#/diet"><i style="background:#1E9E5A"></i>Single Man&rsquo;s Diet</a>
+ <a href="#/movies"><i style="background:#7B2CBF"></i>Movies</a><a href="#/music"><i style="background:#E0359B"></i>Music</a><a href="#/software"><i style="background:#0B7285"></i>Software</a><a href="#/stocks"><i style="background:#2B8A3E"></i>Stocks</a><a href="#/trends"><i style="background:#F08C00"></i>Trending Topics</a><a href="#/deals"><i style="background:#D9480F"></i>Slickdeals</a><a href="#/sports"><i style="background:#1B63E0"></i>Sports</a><a href="#/diet"><i style="background:#1E9E5A"></i>Single Man&rsquo;s Diet</a>
 </nav>
 <div id="siteview"></div>
 <button id="totop" type="button" aria-label="Jump back to top"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 15l7-7 7 7"/></svg> Top</button>
@@ -144,8 +144,8 @@ const U='mzaiger', BRANCH='main';
 const RAW=r=>`https://raw.githubusercontent.com/${U}/${r}/${BRANCH}/`;
 const SITEBASE=window.TS_BASE||'https://marcitech.is-a.dev/';
 const SITEURL=(key,sub)=>SITEBASE+SITE[key]+'/'+(sub||'');
-const SITE={diet:'SingleManDiet',trends:'TrendingTopics',movies:'Movies',music:'Music',software:'Software',deals:'SlickDealsTracker',sports:'SportsDashboard'};const TREND_FILES=[['social_media_trends.json','social_media'],['google_trends.json','google'],['reddit_trends.json','reddit']];
-const COLORS={diet:'#1E9E5A',deals:'#D9480F',sports:'#1B63E0',movies:'#7B2CBF',music:'#E0359B',software:'#0B7285',trends:'#F08C00'};
+const SITE={diet:'SingleManDiet',trends:'TrendingTopics',movies:'Movies',music:'Music',software:'Software',stocks:'Stocks',deals:'SlickDealsTracker',sports:'SportsDashboard'};const TREND_FILES=[['social_media_trends.json','social_media'],['google_trends.json','google'],['reddit_trends.json','reddit']];
+const COLORS={diet:'#1E9E5A',deals:'#D9480F',sports:'#1B63E0',movies:'#7B2CBF',music:'#E0359B',software:'#0B7285',stocks:'#2B8A3E',trends:'#F08C00'};
 const SLOTS=[['Breakfast',8],['Brunch',10],['Lunch',12],['Dinner',19],['Late dinner',22]];
 const DAY0=864e5;
 const WINS=[['1h',36e5,'1 hour'],['1d',DAY0,'1 day'],['1w',7*DAY0,'1 week'],['1m',30*DAY0,'1 month']];
@@ -171,6 +171,7 @@ const kM=i=>i.fk||('all:'+i.raw.id),kS=i=>i.fk||(i.f+':'+i.raw.id),kT=i=>i.sk+'|
 const FAV={
  movies:{is:i=>LS('movies_favs',[]).includes(i.raw.id),set:(i,on)=>mut('movies_favs',[],a=>{const x=new Set(a);on?x.add(i.raw.id):x.delete(i.raw.id);a.length=0;a.push(...x)})},
  music:{is:i=>kM(i)in LS('music_favs',{}),set:(i,on)=>mut('music_favs',{},o=>{const k=kM(i);on?o[k]={...i.raw,rank:i.rank,src:'all'}:delete o[k]})},
+ stocks:{is:i=>LS('stocks_favs',[]).includes(i.raw.sym),set:(i,on)=>mut('stocks_favs',[],a=>{const x=new Set(a);on?x.add(i.raw.sym):x.delete(i.raw.sym);a.length=0;a.push(...x)})},
  software:{is:i=>kS(i)in LS('software_favs2',{}),set:(i,on)=>mut('software_favs2',{},o=>{const k=kS(i);on?o[k]={...i.raw,src:i.f}:delete o[k]})},
  trends:{is:i=>kT(i)in LS('trending_favorites',{}),set:(i,on)=>mut('trending_favorites',{},o=>{const u=kT(i);on?o[u]={...i.raw,source:i.sk,uid:u}:delete o[u]})},
  deals:{is:i=>i.raw.link in LS('slickdeals_favorites',{}),set:(i,on)=>mut('slickdeals_favorites',{},o=>{on?o[i.raw.link]=i.raw:delete o[i.raw.link]})}};
@@ -204,6 +205,12 @@ async function movies(){const sc=await J(RAW(SITE.movies)+'data/scores.json');if
 async function music(){const d=await J(RAW(SITE.music)+'data/all.json');if(!d)return;
  add(d.items.map((i,n)=>({id:'mu'+i.id,src:'music',raw:i,rank:i.rank||n+1,title:i.title,ts:i.date?dts(i.date):NaN})).filter(x=>!isNaN(x.ts)))}
 async function software(){for(const f of['github','steam','itunes']){const d=await J(RAW(SITE.software)+`data/${f}.json`);if(d)add(d.items.filter(i=>i.date).map((i,n)=>({id:'sw'+f+i.id,src:'software',f,raw:i,rank:(i.ranks&&(i.ranks['12']??i.ranks['0']))||n+1,title:i.title,ts:dts(i.date)})))}}
+// Stocks: the Stocks site's overall board (All tab: a stock has to be on at least 2 of its 3 rankings, Gainers / Most Active / Buzz). The tile time is when the stock started trending.
+async function stocks(){const d=await J(RAW(SITE.stocks)+'data/board.json');if(!d||!d.stocks)return;
+ const w=String((d.windows||[])[0]||''),rows=Object.entries(d.stocks).map(([sym,st])=>({sym,st,sc:(st.s||{})[w]})).filter(x=>x.sc);
+ const rk=n=>{const m=new Map();rows.filter(x=>(x.sc[n]||0)>0).sort((a,b)=>b.sc[n]-a.sc[n]||a.sym.localeCompare(b.sym)).forEach((x,k)=>m.set(x.sym,k+1));return m};   // rank on each of the site's tabs
+ const R=[0,1,2].map(rk),board=rows.filter(x=>(x.sc[3]||0)>0).sort((a,b)=>b.sc[3]-a.sc[3]||a.sym.localeCompare(b.sym));
+ add(board.map((x,k)=>({id:'st'+x.sym,src:'stocks',raw:{...x.st,sym:x.sym,rks:R.map(m=>m.get(x.sym)||0)},rank:k+1,title:(x.sym+' '+(x.st.n||'')).trim(),ts:Date.parse(x.st.since)})).filter(x=>!isNaN(x.ts)))}
 const hid=s=>{let h=5381;for(let i=0;i<s.length;i++)h=(h*33^s.charCodeAt(i))>>>0;return h.toString(36)};
 async function deals(){try{const seenD=new Set();const r=await fetch(RAW(SITE.deals)+'deals.xml?v='+Math.floor(now/3e5));const x=new DOMParser().parseFromString(await r.text(),'text/xml');
  const EX=new Map();try{const xr=new DOMParser().parseFromString(await(await fetch(RAW(SITE.deals)+'expired.xml?v='+Math.floor(now/3e5))).text(),'text/xml');xr.querySelectorAll('expiration').forEach(e=>{const t=(e.querySelector('title')?.textContent||'').trim(),rt=parseInt(e.querySelector('rating')?.textContent,10);if(t)EX.set(t,{expired:(e.querySelector('expired')?.textContent||'').trim().toLowerCase()==='true',rating:Number.isFinite(rt)?rt:null})})}catch{}   // expired.xml: which deals are expired + a fresher rating
@@ -377,6 +384,30 @@ function watchLinks(m) {
 }
 
 
+// Stocks tile: same markup as the Stocks site (css/stocks.css is copied from it)
+function logoErr(img){const n=img.dataset.next;if(n){img.dataset.next='';img.src=n;return}const d=document.createElement('div');d.className='thumb-fallback';d.textContent=img.dataset.sym||'';img.replaceWith(d)}   // favicon -> company logo -> ticker letters
+const stkMoney=v=>v==null?'\u2014':v>=1e12?`$${(v/1e12).toFixed(v>=1e13?0:1)}T`:v>=1e9?`$${(v/1e9).toFixed(v>=1e10?0:1)}B`:v>=1e6?`$${(v/1e6).toFixed(v>=1e8?0:1)}M`:`$${Math.round(v/1e3)}K`;
+const stkShares=v=>v==null?'\u2014':v>=1e9?`${(v/1e9).toFixed(2)}B`:v>=1e8?`${Math.round(v/1e6)}M`:v>=1e6?`${(v/1e6).toFixed(1)}M`:v>=1e3?`${Math.round(v/1e3)}K`:String(Math.round(v));
+const stkCount=v=>v==null?'\u2014':v>=1e4?`${(v/1e3).toFixed(0)}K`:v>=1e3?`${(v/1e3).toFixed(1)}K`:String(v);
+const stkSign=v=>(v>0?'+':'')+v.toFixed(2)+'%',stkUsd=v=>v!=null?'$'+v.toFixed(2):'\u2014',stkPts=v=>v==null?'':(v>0?'+':'')+v.toFixed(2),stkArrow=v=>v>0?'\u25b2':v<0?'\u25bc':'',stkCls=v=>v>0?'up':v<0?'down':'';
+function stkTile(i){const st=i.raw,sym=st.sym,q=encodeURIComponent(sym),site=st.web?safeUrl(st.web):'',host=site?new URL(site).hostname:'';
+ const fav=d=>`https://www.google.com/s2/favicons?domain=${encodeURIComponent(d)}&sz=128`,logo=`https://images.financialmodelingprep.com/symbol/${q}.png`;
+ const icon=(href,src,name)=>`<a href="${esc(href)}" target="_blank" rel="noopener noreferrer" title="${esc(name)}" aria-label="${esc(name)}"><img src="${esc(src)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.replaceWith(document.createTextNode('${name[0]}'))"><span class="arrow">\u2197</span></a>`;
+ const links=[];if(site)links.push(icon(site,fav(host),'Company website'));
+ links.push(icon(`https://finance.yahoo.com/quote/${q}`,fav('finance.yahoo.com'),'Yahoo Finance'),icon(`https://www.tradingview.com/symbols/${encodeURIComponent(sym.replace('-','.'))}/`,fav('tradingview.com'),'TradingView'),icon(`https://stocktwits.com/symbol/${q}`,fav('stocktwits.com'),'StockTwits'),icon(`https://www.reddit.com/search/?q=%24${q}`,fav('reddit.com'),'Reddit'));
+ const surge=st.m!=null&&st.m24!=null?(st.m24===0?(st.m>0?'new':''):`${st.m>=st.m24?'\u25b2':'\u25bc'}${Math.abs(Math.round((st.m/st.m24-1)*100))}%`):'';
+ const rk=n=>`<span class="rk">${st.rks&&st.rks[n]?'#'+st.rks[n]:'\u2014'}</span>`;
+ const hasExt=!!(st.ext&&st.rp!=null),extName=st.ext=='pre'?'Pre':'AH',extFull=st.ext=='pre'?'Pre-market price and change':'After-hours price and change';
+ const regPrice=hasExt?st.rp:st.p,regPct=hasExt?st.rc:(st.rc!=null?st.rc:st.c);
+ const line=(px,d,pct,ext)=>`<div class="pline${ext?' ext':''}" title="${ext?extFull:(hasExt?'Regular-session price and change'+(st.ext=='pre'?' (the last close)':''):'Price and change since the previous close')}">${ext?`<i>${extName}</i>`:''}<span class="px">${stkUsd(px)}</span>${pct==null?'':`<span class="dlt ${stkCls(pct)}">${d==null?'':stkPts(d)+' '}${stkSign(pct)} ${stkArrow(pct)}</span>`}</div>`;
+ const priceBox=`<div class="pricebox">${line(regPrice,st.rch,regPct,false)}${hasExt?line(st.p,st.ech,st.ec,true):''}</div>`;
+ return`<article class="card"><div class="thumb-wrap"><img src="${esc(site?fav(host):logo)}" data-next="${esc(site?logo:'')}" data-sym="${esc(sym.slice(0,4))}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="logoErr(this)">${favT(i)}<div class="rank-pill">#${i.rank}</div></div>
+ <div class="body"><div class="ticker-row"><p class="ticker"><a href="https://finance.yahoo.com/quote/${q}" target="_blank" rel="noopener noreferrer" title="Open ${esc(sym)} on Yahoo Finance">${esc(sym)}</a></p></div>${priceBox}
+ <p class="name">${esc(st.n||'')}${st.mc?` \u00b7 ${stkMoney(st.mc)}`:''}</p>${st.why?`<p class="why">${esc(st.why)}</p>`:''}
+ <div class="chips"><div class="chip" title="The change used for the ranking"><small>${st.ext?extName+' chg':'Chg'}</small><span class="val ${stkCls(st.c)}">${st.c==null?'\u2014':stkSign(st.c)}</span>${rk(0)}</div>
+ <div class="chip" title="Shares traded today"><small>Volume</small><span class="val">${stkShares(st.v)}</span>${rk(1)}</div>
+ <div class="chip" title="Reddit mentions in the last 24 hours, and the change from the 24 hours before"><small>Buzz</small><span class="val">${stkCount(st.m)}${surge?`<span class="pct ${surge[0]=='\u25b2'?'up':surge[0]=='\u25bc'?'down':''}">${surge}</span>`:''}</span>${rk(2)}</div></div>
+ ${st.since?`<p class="when"><span class="ago">${relT(st.since)}</span></p>`:''}<div class="links" style="grid-template-columns:repeat(${links.length},minmax(0,1fr))">${links.join('')}</div></div></article>`}
 const TILE={
 trends:i=>{const it=i.raw,src=TS[i.sk]||{l:'',o:''},h=Math.max(0,(now-Date.parse(it.started_trending))/36e5),vol=it.volume_unit==='hours'?(h<1?'<1hr trend':Math.floor(h)+'hr trend'):(it.volume||'');
  return`<article class="card"><div class="thumb-wrap">${imgT(it.image_url)}${favT(i)}<div class="rank-pill"><span>#${esc(it.rank)}</span>${chg(it)}</div></div><div class="body"><p class="title"><a class="stretch" href="${esc(safeUrl(it.url))}" target="_blank" rel="noopener noreferrer">${esc(it.topic)}</a></p><p class="desc${it.description?'':' none'}">${it.description?esc(it.description):'No summary yet.'}</p><div class="meta-block"><div class="meta"><span class="when">${rel(it.published||it.started_trending)}</span><span class="vol">${esc(vol)||'\u2014'}</span></div><div class="meta"><span class="srctag">${esc(src.l)}</span><span class="go">${esc(src.o)}</span></div></div></div></article>`},
@@ -404,6 +435,7 @@ diet:i=>{const meal=i.meal,src=DS.getMealSource(meal),desired=i.desired,pending=
  regen=`<button type="button" class="regen-btn${pending?' needs-regen':''}" data-day="${i.day}" data-slot="${e(i.slot)}" title="${e(rt)}">regen</button>`,
  pick=`<button type="button" class="regen-btn pick-btn" data-day="${i.day}" data-slot="${e(i.slot)}" title="Pick this meal by hand from the product list" aria-label="Select this meal by hand">select</button>`;
  return`<div style="display:none">${DS.SM_SPRITE}</div><div class="day-card" data-wk="${i.wk}"><div class="day-header"><div class="day-name">${i.dn}<br><span class="day-date">${i.dt}</span></div><div class="day-header-totals"><div class="price">${tm}</div></div></div><div class="meal-row">${thumb}<div class="meal-info"><div class="meal-slot">${e(i.slot)}</div><div class="meal-name">${rest?`<span class="meal-brand">${e(rest)}</span>`:''}${e(name)}</div></div><div class="meal-money"><div class="meal-cal">${cal} cal*</div><div class="meal-price">${pd}</div><div class="meal-serving">Serving: ${e(serving)}</div>${DS.sourceControlHtml(i.day,i.slot,desired,src)}</div><div class="meal-actions${src==='frozen'?' frozen-actions':''}">${pick}${regen}${links}</div></div></div>`},
+stocks:i=>stkTile(i),
 software:i=>{const it=i.raw,S2=SW[i.f],url=safeUrl(it.url);
  return`<article class="card"><div class="thumb-wrap ${i.f}">${url?`<a class="thumb-link" href="${esc(url)}" target="_blank" rel="noopener noreferrer">${imgT(it.image)}</a>`:imgT(it.image)}${favT(i)}<div class="rank-pill">#${i.rank}</div></div><div class="body"><p class="title">${url?`<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">${esc(it.title)}</a>`:esc(it.title)}</p><p class="desc clamp">${esc(it.desc||'No description provided.')}</p>${url?`<a class="open-link" href="${esc(url)}" target="_blank" rel="noopener noreferrer">${S2.open} <span>\u2197</span></a>`:''}<div class="meta"><span>${esc(fmtDate(it.date))}</span><span>${S2.m(it)}</span></div></div></article>`}};
 // ===== render =====
@@ -414,7 +446,7 @@ async function sheets(){await Promise.all(Object.keys(TILE).map(async k=>{try{co
 const HOSTS=new Map();
 const SPORTL={nfl:'NFL',cfb:'College Football',nhl:'NHL',nba:'NBA',mlb:'MLB',ncaamb:'College Basketball'};
 const SUBS={social_media:'Social Media',google:'Google',reddit:'Reddit',github:'GitHub',steam:'Steam',itunes:'iTunes'},SPN={cfb:'ncaaf'};
-const NAMES={movies:'Movies',music:'Music',software:'Software',trends:'Trending Topics',deals:'Slickdeals',sports:'Sports',diet:'Single Man\u2019s Diet'};
+const NAMES={movies:'Movies',music:'Music',software:'Software',stocks:'Stocks',trends:'Trending Topics',deals:'Slickdeals',sports:'Sports',diet:'Single Man\u2019s Diet'};
 const subOf=i=>i.src=='trends'?SUBS[i.sk]:i.src=='software'?SUBS[i.f]:i.src=='sports'?SPORTL[i.sport]:i.src=='diet'?(DS.getMealSource(i.meal)=='frozen'?'Frozen':'Fast Food'):'';
 let tileDrag=null;const srcPtr=(sl,e)=>{const r=sl.getBoundingClientRect();return(r.width&&(e.clientX-r.left)/r.width>=.5)?'fast':'frozen'};
 function host(i){let h=HOSTS.get(i.id);if(h)return h;h=document.createElement('div');h.className='tile';const r=h.attachShadow({mode:'open'});r.adoptedStyleSheets=[SHEETS[i.src],BASE];
@@ -470,7 +502,7 @@ function render(){if(!READY||BOOT)return;now=Date.now();const W=30*DAY0,lo=now-W
 function ui(){const btn=(a,k,v,n)=>`<button class="tab ${S[k]==v?'on':''}" data-${a}="${v}">${n}</button>`;
  document.getElementById('tabs').innerHTML=[['live','Live stream'],['fav','Favorites']].map(([v,n])=>btn('tab','tab',v,n)).join('');
  document.getElementById('sorts').innerHTML=SORTS.map(([v,n])=>btn('sort','sort',v,n)).join('');
- document.getElementById('srcs').innerHTML=['movies','music','software','trends','deals','sports','diet'].map(k=>`<button class="chip2 ${S.hide.includes(k)?'':'on'}" data-hide="${k}"${S.hide.includes(k)?'':` style="background:${COLORS[k]}"`}>${NAMES[k]}</button>`).join('');}
+ document.getElementById('srcs').innerHTML=['movies','music','software','stocks','trends','deals','sports','diet'].map(k=>`<button class="chip2 ${S.hide.includes(k)?'':'on'}" data-hide="${k}"${S.hide.includes(k)?'':` style="background:${COLORS[k]}"`}>${NAMES[k]}</button>`).join('');}
 document.addEventListener('click',e=>{const t=e.target,d=t.dataset;if(!d)return;let ch=0;
  if(d.tab){S.tab=d.tab;sc('ts_tab',S.tab);ch=1;SHOWN=60;scrollTo(0,0);if(S.tab=='fav')favMovies()}
  if(d.sort){S.sort=d.sort;sc('ts_sort2',S.sort);ch=1;SHOWN=60;scrollTo(0,0)}
@@ -485,13 +517,13 @@ document.getElementById('moreBtn').onclick=more;
 // ===== menu + in-page viewer: the other sites open in an iframe under the Trendslope header =====
 let MAINY=0;const sv=document.getElementById('siteview');
 // each site's own mobile scale (its viewport tag's initial-scale), vs this page's 1.0
-const SITEBG={movies:'#FFFFFF',music:'#FFFFFF',software:'#FFFFFF',trends:'#FFFFFF',deals:'#FFFFFF',sports:'#0d1322',diet:'#EEF2F0'},paint=c=>{document.documentElement.style.background=document.body.style.background=c||''};   // each site's own page color fills the strip under the slope, so the page drops in below it seamlessly
+const SITEBG={movies:'#FFFFFF',music:'#FFFFFF',software:'#FFFFFF',stocks:'#FFFFFF',trends:'#FFFFFF',deals:'#FFFFFF',sports:'#0d1322',diet:'#EEF2F0'},paint=c=>{document.documentElement.style.background=document.body.style.background=c||''};   // each site's own page color fills the strip under the slope, so the page drops in below it seamlessly
 // banner scroll-away: plain top / margin offsets (no transforms or custom properties, which iOS Safari mishandles together with clip-path)
 const shiftHdr=px=>{const hd=document.querySelector('.disco'),b=document.getElementById('burger'),m=document.getElementById('menu'),t=px?-px+'px':'';
  hd.style.top=t;b&&(b.style.marginTop=t);m&&(m.style.marginTop=t)};
 let FOLLOW=0;
 const sportsBg=()=>{try{return getEffectiveTheme()==='light'?'#f5f7fc':'#0d1322'}catch{return '#0d1322'}};   // Sports follows its own dark/light choice (same fb_theme setting, same origin)
-const SITESCALE={movies:.8,music:.8,software:.8,trends:.75,deals:.6,sports:.85,diet:1},PSCALE=1,isMob=()=>matchMedia('(hover:none) and (pointer:coarse) and (max-width:700px)').matches;   // scaling is for phones only, never desktop
+const SITESCALE={movies:.8,music:.8,software:.8,stocks:.8,trends:.75,deals:.6,sports:.85,diet:1},PSCALE=1,isMob=()=>matchMedia('(hover:none) and (pointer:coarse) and (max-width:700px)').matches;   // scaling is for phones only, never desktop
 function openSite(key,sub){location.hash='#/'+key+(sub?'/'+sub:'')}
 // a fresh iframe each time (its first load replaces the blank page instead of adding browser-history steps)
 function showSite(key,sub){const url=SITEURL(key,sub);if(!document.body.classList.contains('site-mode')){MAINY=scrollY;document.body.classList.add('site-mode')}
@@ -500,7 +532,7 @@ function showSite(key,sub){const url=SITEURL(key,sub);if(!document.body.classLis
   const sk=(mobile&&s&&Math.abs(k-1)>.01)?k:1;
   cancelAnimationFrame(FOLLOW);
   f.addEventListener('load',()=>{try{const w=f.contentWindow,hd=document.querySelector('.disco'),root=w.document.documentElement;
-   const onBody=['movies','music','software','trends','deals'].includes(key),tgt=onBody?w.document.body:root,base=onBody?(parseFloat(w.getComputedStyle(tgt).paddingTop)||0):0;   // those sites paint their slight blue glow on <body>, so the space under the banner goes on <body> too (on <html> it would show plain white)
+   const onBody=['movies','music','software','stocks','trends','deals'].includes(key),tgt=onBody?w.document.body:root,base=onBody?(parseFloat(w.getComputedStyle(tgt).paddingTop)||0):0;   // those sites paint their slight blue glow on <body>, so the space under the banner goes on <body> too (on <html> it would show plain white)
    const pad=()=>{const extra=document.body.dataset.site=='diet'?(slope.rise||0):0;tgt.style.paddingTop=(base+(hd.offsetHeight-extra)/sk)+'px'};   // the site starts just under the banner...
    pad();addEventListener('resize',pad);
    cancelAnimationFrame(FOLLOW);
@@ -536,5 +568,5 @@ addEventListener('load',kick);addEventListener('pageshow',kick);document.addEven
 document.fonts&&document.fonts.ready.then(()=>{slope();kick()});[300,1200,3000].forEach(ms=>setTimeout(slope,ms));
 addEventListener('storage',render);setInterval(render,60000);
 sheets();const bootDone=()=>{if(!BOOT)return;BOOT=false;render();kick()};
-Promise.allSettled([movies,music,software,deals,sports,trends,diet,scores].map(f=>{try{return Promise.resolve(f())}catch(e){return Promise.resolve()}})).then(bootDone);setTimeout(bootDone,8000);   // first draw when everything has arrived (or after 8s)
+Promise.allSettled([movies,music,software,stocks,deals,sports,trends,diet,scores].map(f=>{try{return Promise.resolve(f())}catch(e){return Promise.resolve()}})).then(bootDone);setTimeout(bootDone,8000);   // first draw when everything has arrived (or after 8s)
 </script></body></html>
