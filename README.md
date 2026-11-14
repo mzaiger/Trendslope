@@ -8,17 +8,19 @@ It is a plain static site: one `index.html`, a few stylesheets, and no build ste
 
 ## What it shows
 
-The page has two tabs, **Live Stream** and **Favorites**, and a **Popular / Latest** sort. Source chips under the tabs show or hide each site's tiles. The grid draws once everything has loaded, shows 60 tiles at a time, and loads more as you scroll. Switching tab or sort jumps back to the top, and a **Top** button appears after you scroll down. Each tile type has its own rules:
+The page has two tabs, **Live Stream** and **Favorites**, and a **Popular / Latest** sort. Source chips under the tabs show or hide each site's tiles (in the order Sports, Movies, Music, Software, Stocks, Trending Topics, Slickdeals, Single Man's Diet, which is also the menu order). The grid draws once everything has loaded, shows 60 tiles at a time, and loads more as you scroll. Switching tab or sort jumps back to the top, and a **Top** button appears after you scroll down. **Mixing.** The sources take turns so the page is not one source after another. On **Popular**, each source keeps its own ranking order, but the grid shows one tile from each source in turn (a different random source order each round: one sport, one trending topic, one music tile, and so on, then the second tile of each). On **Latest**, the grid stays in date order **between 4-hour blocks** (local time: 0 to 4, 4 to 8, and so on, never crossing midnight), and inside each block the sources are mixed the same way. The random order is seeded by the clock, so it holds still for 4 hours and then reshuffles on Popular; on Latest a given block always mixes the same way. Day headings (Today, Yesterday...) work as before.
+
+Each tile type has its own rules:
 
 | Source | Repo | What goes into the Live Stream |
 | --- | --- | --- |
-| **Trending Topics** | `TrendingTopics` | Social media: top 20. Reddit: top 25. Google: everything added in the past hour (up to 25) plus the top 20 overall, each by rank. |
-| **Slickdeals** | `SlickDealsTracker` | Every deal from the past 2 hours plus the top 20 overall by rating. Expired deals show an "Expired" badge, and the rating comes from `expired.xml` when it has one. |
 | **Sports** | `SportsDashboard` | NFL, NHL, MLB, NBA, college football and college basketball. The day's top 2 matchups per sport (by `matchup_rank`), through the end of tomorrow. Live scores are added to tiles. |
 | **Movies** | `Movies` | The Movies site's overall board for the last 3 months. A movie is ranked if it has a box office, or both a Rotten Tomatoes score and an IMDb rating, and the tile date is the release date. |
 | **Music** | `Music` | The Music site's all-sources list. |
 | **Software** | `Software` | Top GitHub (stars), Steam (most played) and iTunes (Apple ranking) lists. |
 | **Stocks** | `Stocks` | The Stocks site's overall board (its All tab): stocks that are on at least 2 of its 3 rankings (Gainers, Most Active, Buzz), in that board's order. The tile time is when the stock started trending (the "35m ago" on the tile). The board has no time window of its own: it is the latest snapshot, refreshed every 15 minutes on business days. |
+| **Trending Topics** | `TrendingTopics` | Social media: top 20. Reddit: top 25. Google: everything added in the past hour (up to 25) plus the top 20 overall, each by rank. |
+| **Slickdeals** | `SlickDealsTracker` | Every deal from the past 2 hours plus the top 20 overall by rating. Expired deals show an "Expired" badge, and the rating comes from `expired.xml` when it has one. |
 | **Single Man's Diet** | `SingleManDiet` | Today's and tomorrow's meals from the latest week saved in the planner. On Popular, the meal closest to now comes first, then the rest go forward in time. |
 
 The trending, deals and diet feeds ignore the date filter on purpose. They always show their own top lists so no one source takes over the page. Everything else uses a fixed window of the last 30 days (plus the next 12 hours). The old 1 hour / 1 day / 1 week / 1 month buttons were removed.

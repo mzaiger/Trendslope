@@ -50,6 +50,7 @@ main{max-width:1700px;margin:0 auto;padding:0 24px 60px}
 .daydiv{grid-column:1/-1;margin-top:14px;padding:7px 16px;border-radius:10px;color:#fff;font-family:Oswald,sans-serif;font-weight:600;font-size:14px;letter-spacing:.14em;text-transform:uppercase;background:linear-gradient(100deg,#2a0a4a,#6a11cb 45%,#ff2fa0);box-shadow:0 2px 10px rgba(106,17,203,.25)}
 .daydiv small{font-family:'IBM Plex Mono',monospace;letter-spacing:.05em;opacity:.8;margin-left:10px;font-size:11px;text-transform:none}
 .srcs{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 6px}
+@media(min-width:701px){#menu{flex-wrap:wrap;justify-content:flex-end;max-width:calc(100% - 330px)}}
 .chip2{cursor:pointer;border:1px solid var(--line);background:#fff;color:var(--dim);border-radius:999px;padding:4px 13px;font:600 12px Oswald,sans-serif;letter-spacing:.1em;text-transform:uppercase}
 .chip2.on{color:#fff;border-color:transparent}
 
@@ -106,7 +107,8 @@ body.site-mode #back{display:flex}
  .tab{font-size:11px;padding:6px 9px;white-space:nowrap}
  .mono{font-size:10.2px}
  .btn{font-size:10.2px;padding:5px 9px}
- .chip2{font-size:10.2px;padding:3.4px 11px}
+ .srcs{gap:5px}
+ .chip2{font-size:10px;padding:3.4px 9px;letter-spacing:.06em}
 }
 @media(min-width:701px){.disco{overflow:hidden}}
 </style></head><body>
@@ -120,7 +122,7 @@ body.site-mode #back{display:flex}
 </header>
 <button id="burger" aria-label="Menu" aria-expanded="false" aria-controls="menu"><span></span><span></span><span></span></button>
 <nav id="menu" aria-label="Sites">
- <a href="#/movies"><i style="background:#7B2CBF"></i>Movies</a><a href="#/music"><i style="background:#E0359B"></i>Music</a><a href="#/software"><i style="background:#0B7285"></i>Software</a><a href="#/stocks"><i style="background:#2B8A3E"></i>Stocks</a><a href="#/trends"><i style="background:#F08C00"></i>Trending Topics</a><a href="#/deals"><i style="background:#D9480F"></i>Slickdeals</a><a href="#/sports"><i style="background:#1B63E0"></i>Sports</a><a href="#/diet"><i style="background:#1E9E5A"></i>Single Man&rsquo;s Diet</a>
+ <a href="#/sports"><i style="background:#1B63E0"></i>Sports</a><a href="#/movies"><i style="background:#7B2CBF"></i>Movies</a><a href="#/music"><i style="background:#E0359B"></i>Music</a><a href="#/software"><i style="background:#0B7285"></i>Software</a><a href="#/stocks"><i style="background:#2B8A3E"></i>Stocks</a><a href="#/trends"><i style="background:#F08C00"></i>Trending Topics</a><a href="#/deals"><i style="background:#D9480F"></i>Slickdeals</a><a href="#/diet"><i style="background:#1E9E5A"></i>Single Man&rsquo;s Diet</a>
 </nav>
 <div id="siteview"></div>
 <button id="totop" type="button" aria-label="Jump back to top"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 15l7-7 7 7"/></svg> Top</button>
@@ -481,14 +483,26 @@ function slope(){const hd=document.querySelector('.disco'),el=document.getElemen
  const W=hd.clientWidth||innerWidth,mob=matchMedia('(max-width:700px)').matches,rise=mob?22:Math.round(Math.max(18,Math.min(32,W*.04)));
  slope.rise=rise;   // the slanted edge itself is static CSS (clip-path never changes after load: iOS Safari can leave a changed clip-path unpainted until something forces a reflow)
  el.style.width=Math.ceil(Math.hypot(W,rise)+30)+'px';el.style.transform=el.style.webkitTransform=`rotate(${-Math.atan2(rise,W)}rad)`}
+// Mixing: instead of every source's #1 tile, then every #2, grouped by source, the sources take turns (one tile each, in a random source order per round).
+// The randomness is seeded by the clock, so it holds still for 4 hours and then reshuffles. Each source keeps its own order (by rank or by time).
+const rng=seed=>{let a=seed>>>0;return()=>{a=(a+0x6D2B79F5)>>>0;let t=a;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return((t^t>>>14)>>>0)/4294967296}};
+const blockKey=ms=>{const d=new Date(ms);return((d.getFullYear()*12+d.getMonth())*31+d.getDate())*6+Math.floor(d.getHours()/4)};   // local 4-hour block: 0-4, 4-8, ... (never crosses midnight)
+function mix(items,seed){const by=new Map();for(const i of items){if(!by.has(i.src))by.set(i.src,[]);by.get(i.src).push(i)}
+ const qs=[...by.values()],out=[];let round=0;
+ while(qs.some(q=>q.length)){const live=qs.filter(q=>q.length),r=rng(Math.imul(seed,7919)+round++);
+  for(let k=live.length-1;k>0;k--){const j=Math.floor(r()*(k+1));[live[k],live[j]]=[live[j],live[k]]}
+  for(const q of live)out.push(q.shift())}
+ return out}
+// date order stays, but only between 4-hour blocks: inside a block the sources are mixed
+function mixBlocks(sorted){const out=[];let cur=[],key=null;for(const i of sorted){const k=blockKey(i.ts);if(cur.length&&k!==key){out.push(...mix(cur,key));cur=[]}key=k;cur.push(i)}if(cur.length)out.push(...mix(cur,key));return out}
 function render(){if(!READY||BOOT)return;now=Date.now();const W=30*DAY0,lo=now-W,hi=now+Math.min(W,DAY/2),fav=S.tab=='fav';let all;
  if(fav)all=[...ITEMS,...extras(),...dietItems(lo,hi,true)].filter(i=>isFav(i)||(i.src=='diet'&&i.today)||(i.src=='sports'&&PS.hasAnyPick(i.sport,i.raw.id)));
  else all=liveList(W);
  all=all.filter(i=>!S.hide.includes(i.src));
- if(S.sort=='new')all.sort((a,b)=>b.ts-a.ts);
+ if(S.sort=='new'){all.sort((a,b)=>b.ts-a.ts);all=mixBlocks(all)}
  else{const dI=all.filter(i=>i.src=='diet'),cl=[...dI].sort((a,b)=>Math.abs(a.ts-now)-Math.abs(b.ts-now))[0],dk=x=>x===cl?-1:x.ts>cl.ts?x.ts-cl.ts:1e13+(cl.ts-x.ts);   // closest meal first (before or after now), then forward in time only; earlier meals trail
   dI.sort((a,b)=>dk(a)-dk(b)).forEach((x,k)=>{x.rk=k+1});all.forEach(i=>{if(i.src!='diet')i.rk=i.rank||1e6});
-  all.sort((a,b)=>a.rk-b.rk||b.ts-a.ts)}   // ranking order; the most recent wins a tie
+  all.sort((a,b)=>a.rk-b.rk||b.ts-a.ts);all=mix(all,blockKey(now))}   // ranking order inside each source (the most recent wins a tie); the sources take turns, reshuffled every 4 hours
  LASTTOTAL=all.length;render.all=all;document.getElementById('count').textContent=all.length+' tiles';
  const list=all.slice(0,SHOWN);CUR.clear();list.forEach(i=>CUR.set(i.id,i));
  const out=[];let lastDay='';const t0=new Date(now);t0.setHours(0,0,0,0);
@@ -502,7 +516,7 @@ function render(){if(!READY||BOOT)return;now=Date.now();const W=30*DAY0,lo=now-W
 function ui(){const btn=(a,k,v,n)=>`<button class="tab ${S[k]==v?'on':''}" data-${a}="${v}">${n}</button>`;
  document.getElementById('tabs').innerHTML=[['live','Live stream'],['fav','Favorites']].map(([v,n])=>btn('tab','tab',v,n)).join('');
  document.getElementById('sorts').innerHTML=SORTS.map(([v,n])=>btn('sort','sort',v,n)).join('');
- document.getElementById('srcs').innerHTML=['movies','music','software','stocks','trends','deals','sports','diet'].map(k=>`<button class="chip2 ${S.hide.includes(k)?'':'on'}" data-hide="${k}"${S.hide.includes(k)?'':` style="background:${COLORS[k]}"`}>${NAMES[k]}</button>`).join('');}
+ document.getElementById('srcs').innerHTML=['sports','movies','music','software','stocks','trends','deals','diet'].map(k=>`<button class="chip2 ${S.hide.includes(k)?'':'on'}" data-hide="${k}"${S.hide.includes(k)?'':` style="background:${COLORS[k]}"`}>${NAMES[k]}</button>`).join('');}
 document.addEventListener('click',e=>{const t=e.target,d=t.dataset;if(!d)return;let ch=0;
  if(d.tab){S.tab=d.tab;sc('ts_tab',S.tab);ch=1;SHOWN=60;scrollTo(0,0);if(S.tab=='fav')favMovies()}
  if(d.sort){S.sort=d.sort;sc('ts_sort2',S.sort);ch=1;SHOWN=60;scrollTo(0,0)}
