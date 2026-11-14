@@ -195,6 +195,7 @@ a.stretch:focus-visible::after{ outline: 3px solid var(--blue); outline-offset: 
 .net-icons a{ display: inline-flex; padding: 4px; border: 1px solid transparent; border-radius: 6px; transition: border-color 0.15s ease, background 0.15s ease; }
 .net-icons a:hover,.net-icons a:focus-visible{ border-color: var(--blue); background: var(--panel); outline: none; }
 .icons-row{ display: block; }
+.meta.link-row{ justify-content: center; }
 .net-icons.wide{ display: flex; width: 100%; gap: 4px; }
 .net-icons.wide a{ flex: 1; justify-content: center; padding: 6px 0; }
 .net-icons.wide .fav-ico{ width: 24px; height: 24px; border-radius: 5px; }
