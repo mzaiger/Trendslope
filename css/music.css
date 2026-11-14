@@ -33,15 +33,18 @@ main{ max-width:1700px; margin:0 auto; padding:0 24px 60px; }
 .thumb-wrap.youtube{ aspect-ratio:16/9; }
 .artist{ font-size:12.5px; color:var(--text-dim); margin:-2px 0 6px; overflow-wrap:anywhere; }
 .links{ display:flex; flex-wrap:wrap; gap:5px; margin-top:auto; }
-.lk{ flex:1 1 auto; text-align:center; padding:7px 8px; background:var(--panel); border:1px solid var(--line); border-radius:8px; color:var(--blue); text-decoration:none; font-family:'IBM Plex Mono',monospace; font-size:11.5px; font-weight:600; white-space:nowrap; }
+.lk{ flex:1 1 auto; display:inline-flex; align-items:center; justify-content:center; gap:6px; text-align:center; padding:7px 8px; background:var(--panel); border:1px solid var(--line); border-radius:8px; color:var(--blue); text-decoration:none; font-family:'IBM Plex Mono',monospace; font-size:11.5px; font-weight:600; white-space:nowrap; }
 .lk:hover{ border-color:var(--blue); background:#fff; }
 .lk.s{ color:var(--text-dim); font-weight:500; }
+.lk-ico{ width:16px; height:16px; border-radius:3px; flex:none; display:block; }
+.lk.s .lk-ico{ opacity:.7; }
 .chips{ display:flex; flex-wrap:wrap; gap:4px; margin-top:8px; }
 .chip{ font-family:'IBM Plex Mono',monospace; font-size:10.5px; padding:2px 7px; border:1px solid var(--line); border-radius:999px; color:var(--text-dim); background:var(--panel); }
 .rows-table{ min-width:1180px; }
 .rows-header-row,.row-item{ grid-template-columns:34px 84px 52px minmax(150px,1.2fr) minmax(220px,2fr) 108px 190px 230px !important; }
 .row-item .links{ margin:0; flex-wrap:nowrap; }
-.row-item .lk{ padding:6px 4px; font-size:11px; }
+.row-item .lk{ padding:6px 4px; gap:4px; font-size:11px; }
+.row-item .lk-ico{ width:14px; height:14px; }
 .grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:14px; }
 .card{ position:relative; display:flex; flex-direction:column; background:#fff; border:1px solid var(--line); border-radius:var(--radius); overflow:hidden; box-shadow:0 1px 2px rgba(16,35,63,.04); }
 .thumb-wrap{ position:relative; aspect-ratio:1/1; background:var(--panel); overflow:hidden; }
