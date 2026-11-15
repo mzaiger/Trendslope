@@ -453,7 +453,7 @@ BASE.replaceSync(':host{display:block}.tile-body{background:none!important;min-h
 async function sheets(){await Promise.all(Object.keys(TILE).map(async k=>{try{const t=await(await fetch(`css/${k}.css`)).text(),sh=new CSSStyleSheet();sh.replaceSync(t);SHEETS[k]=sh}catch{SHEETS[k]=new CSSStyleSheet()}}));READY=true;render()}
 const HOSTS=new Map();
 const SPORTL={nfl:'NFL',cfb:'College Football',nhl:'NHL',nba:'NBA',mlb:'MLB',ncaamb:'College Basketball'};
-const SUBS={social_media:'Social Media',google:'Google',reddit:'Reddit',github:'GitHub',steam:'Steam',itunes:'iTunes'},SPN={cfb:'ncaaf'};
+const SUBS={social_media:'Social Media',google:'Google',reddit:'Reddit',github:'GitHub',steam:'Steam',itunes:'App Store'},SPN={cfb:'ncaaf'};
 const NAMES={movies:'Movies',music:'Music',software:'Software',stocks:'Stocks',trends:'Trending Topics',deals:'Slickdeals',sports:'Sports',diet:'Single Man\u2019s Diet'};
 const subOf=i=>i.src=='trends'?SUBS[i.sk]:i.src=='software'?SUBS[i.f]:i.src=='sports'?SPORTL[i.sport]:i.src=='diet'?(DS.getMealSource(i.meal)=='frozen'?'Frozen':'Fast Food'):'';
 let tileDrag=null;const srcPtr=(sl,e)=>{const r=sl.getBoundingClientRect();return(r.width&&(e.clientX-r.left)/r.width>=.5)?'fast':'frozen'};
