@@ -403,7 +403,7 @@ function stkTile(i){const st=i.raw,sym=st.sym,q=encodeURIComponent(sym),site=st.
  const links=[];if(site)links.push(icon(site,fav(host),'Company website'));
  links.push(icon(`https://finance.yahoo.com/quote/${q}`,fav('finance.yahoo.com'),'Yahoo Finance'),icon(`https://www.tradingview.com/symbols/${encodeURIComponent(sym.replace('-','.'))}/`,fav('tradingview.com'),'TradingView'),icon(`https://stocktwits.com/symbol/${q}`,fav('stocktwits.com'),'StockTwits'),icon(`https://www.reddit.com/search/?q=%24${q}`,fav('reddit.com'),'Reddit'));
  const surge=st.m!=null&&st.m24!=null?(st.m24===0?(st.m>0?'new':''):`${st.m>=st.m24?'\u25b2':'\u25bc'}${Math.abs(Math.round((st.m/st.m24-1)*100))}%`):'';
- const rk=n=>`<span class="rk">${st.rks&&st.rks[n]?'#'+st.rks[n]:'\u2014'}</span>`;
+ const stkChg=st.rc!=null?st.rc:st.c,rk=n=>`<span class="rk">${st.rks&&st.rks[n]?'#'+st.rks[n]:'\u2014'}</span>`;
  const hasExt=!!(st.ext&&st.rp!=null),extName=st.ext=='pre'?'Pre':'AH',extFull=st.ext=='pre'?'Pre-market price and change':'After-hours price and change';
  const regPrice=hasExt?st.rp:st.p,regPct=hasExt?st.rc:(st.rc!=null?st.rc:st.c);
  const line=(px,d,pct,ext)=>`<div class="pline${ext?' ext':''}" title="${ext?extFull:(hasExt?'Regular-session price and change'+(st.ext=='pre'?' (the last close)':''):'Price and change since the previous close')}">${ext?`<i>${extName}</i>`:''}<span class="px">${stkUsd(px)}</span>${pct==null?'':`<span class="dlt ${stkCls(pct)}">${d==null?'':stkPts(d)+' '}${stkSign(pct)} ${stkArrow(pct)}</span>`}</div>`;
@@ -411,7 +411,7 @@ function stkTile(i){const st=i.raw,sym=st.sym,q=encodeURIComponent(sym),site=st.
  return`<article class="card"><div class="thumb-wrap"><img src="${esc(site?fav(host):logo)}" data-next="${esc(site?logo:'')}" data-sym="${esc(sym.slice(0,4))}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="logoErr(this)">${favT(i)}<div class="rank-pill">#${i.rank}</div></div>
  <div class="body"><div class="ticker-row"><p class="ticker"><a href="https://finance.yahoo.com/quote/${q}" target="_blank" rel="noopener noreferrer" title="Open ${esc(sym)} on Yahoo Finance">${esc(sym)}</a></p></div>${priceBox}
  <p class="name">${esc(st.n||'')}${st.mc?` \u00b7 ${stkMoney(st.mc)}`:''}</p>${st.why?`<p class="why">${esc(st.why)}</p>`:''}
- <div class="chips"><div class="chip" title="The change used for the ranking"><small>${st.ext?extName+' chg':'Chg'}</small><span class="val ${stkCls(st.c)}">${st.c==null?'\u2014':stkSign(st.c)}</span>${rk(st.rks&&st.rks[0]?0:1)}</div>
+ <div class="chips"><div class="chip" title="The regular-session change, which Gainers and Losers are ranked on"><small>Chg</small><span class="val ${stkCls(stkChg)}">${stkChg==null?'\u2014':stkSign(stkChg)}</span>${rk(st.rks&&st.rks[0]?0:1)}</div>
  <div class="chip" title="Shares traded today"><small>Volume</small><span class="val">${stkShares(st.v)}</span>${rk(2)}</div>
  <div class="chip" title="Reddit mentions in the last 24 hours, and the change from the 24 hours before"><small>Buzz</small><span class="val">${stkCount(st.m)}${surge?`<span class="pct ${surge[0]=='\u25b2'?'up':surge[0]=='\u25bc'?'down':''}">${surge}</span>`:''}</span>${rk(3)}</div></div>
  ${st.since?`<p class="when"><span class="ago">${relT(st.since)}</span></p>`:''}<div class="links" style="grid-template-columns:repeat(${links.length},minmax(0,1fr))">${links.join('')}</div></div></article>`}
