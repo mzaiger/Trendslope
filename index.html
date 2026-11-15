@@ -138,6 +138,7 @@ body.site-mode #back{display:flex}
   <div class="mono"><span id="count"></span></div>
  </div>
  <div class="srcs" id="srcs"></div>
+ <div class="loading" id="loading" role="status" hidden>Loading\u2026</div>
  <div class="grid" id="grid"></div>
  <div id="more" style="min-height:1px;text-align:center;padding:10px 0 30px"><button class="btn" id="moreBtn" style="display:none"></button></div>
 </main>
@@ -170,7 +171,8 @@ if(!['live','fav'].includes(S.tab))S.tab='live';if(!['new','rank'].includes(S.so
 let ITEMS=[],GSET=new Set(),SHOWN=60,LASTTOTAL=0,MROWS=[],MBOARD=[];const CUR=new Map(),MDET={};
 const dts=d=>{if(!d)return NaN;const m=String(d).match(/^(\d{4})-(\d\d)-(\d\d)$/);return m?new Date(+m[1],m[2]-1,+m[3],12).getTime():Date.parse(d)};
 // ===== favorites: same localStorage keys/formats as each site, so they show on the other pages =====
-const LS=(k,f)=>{try{const v=localStorage.getItem(k);return v==null?f:JSON.parse(v)}catch{return f}},LW=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch{}};
+const LSC=new Map();   // parsed storage values, kept only while one render runs (isFav is asked for every item, which re-parsed the same JSON thousands of times)
+const LS=(k,f)=>{if(LSC.has(k))return LSC.get(k);try{const v=localStorage.getItem(k);if(v==null)return f;const r=JSON.parse(v);LSC.set(k,r);return r}catch{return f}},LW=(k,v)=>{LSC.clear();try{localStorage.setItem(k,JSON.stringify(v))}catch{}};
 const mut=(k,fb,fn)=>{const o=LS(k,fb);fn(o);LW(k,o)};
 const kM=i=>i.fk||('all:'+i.raw.id),kS=i=>i.fk||(i.f+':'+i.raw.id),kT=i=>i.sk+'|'+i.raw.id;
 const FAV={
@@ -515,18 +517,18 @@ function stabilize(all){if(!SETTLED)return all;const key=S.tab+'|'+S.sort+'|'+S.
  for(const n of all){if(!by.has(n.id))continue;by.delete(n.id);
   if(S.sort=='new'){const k=out.findIndex(x=>x.ts<n.ts);k<0?out.push(n):out.splice(k,0,n)}else out.push(n)}
  ORD[key]=out.map(i=>i.id);return out}
-// simple loading screen: paint "Loading..." first, then do the heavy draw (so a tab / sort / source change never freezes on the old view)
-let LTOK=0,RENDERS=0;
-function showLoading(){const d=document.createElement('div');d.className='loading';d.setAttribute('role','status');d.textContent='Loading\u2026';
- document.getElementById('grid').replaceChildren(d);document.getElementById('count').textContent='';document.getElementById('moreBtn').style.display='none'}
-const nextPaint=()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(()=>setTimeout(r,60))));   // resolves after the browser has really painted
-async function renderSoon(pre){const t=++LTOK;
- const g=document.getElementById('grid');g.replaceChildren();showLoading();void g.offsetHeight;   // 1. old tiles out, "Loading..." in (the new choice is already blue: ui() ran first)
- await nextPaint();await new Promise(r=>setTimeout(r,250));   // 2. let it show for a moment, even when the draw itself would be quick
+// simple loading screen: the old tiles are hidden the moment you click (display:none, nothing is torn down yet), "Loading..." shows, the browser paints,
+// and only then are the tiles built. LOADING stops infinite scroll and the minute timer from drawing early.
+let LTOK=0,RENDERS=0,LOADING=0;
+function showLoading(){document.getElementById('grid').style.display='none';document.getElementById('loading').hidden=false;document.getElementById('count').textContent='';document.getElementById('moreBtn').style.display='none'}
+function hideLoading(){document.getElementById('grid').style.display='';document.getElementById('loading').hidden=true}
+const toControls=()=>scrollTo({top:Math.max(0,document.querySelector('.controls').offsetTop-8)});
+const nextPaint=()=>new Promise(r=>requestAnimationFrame(()=>setTimeout(r,30)));   // resolves right after the browser has painted
+async function renderSoon(pre){const t=++LTOK;LOADING=1;showLoading();toControls();   // 1. old tiles out of sight, "Loading..." in (the new choice is already blue: ui() ran first)
+ await nextPaint();await new Promise(r=>setTimeout(r,120));   // 2. let it show for a moment, even when the draw itself would be quick
  if(t!==LTOK)return;const m=RENDERS;if(pre){try{await pre()}catch{}}   // pre (Favorites: fetch saved movies) draws by itself through add()
- if(t!==LTOK)return;if(RENDERS===m)render();   // 3. tiles come up
- scrollTo({top:Math.max(0,document.querySelector('.controls').offsetTop-8)})}
-function render(){if(!READY||BOOT)return;now=Date.now();const W=30*DAY0,lo=now-W,hi=now+Math.min(W,DAY/2),fav=S.tab=='fav';let all;
+ if(t!==LTOK)return;LOADING=0;if(RENDERS===m)render();hideLoading();toControls()}   // 3. tiles come up
+function render(){if(!READY||BOOT)return;LSC.clear();setTimeout(()=>LSC.clear(),0);now=Date.now();const W=30*DAY0,lo=now-W,hi=now+Math.min(W,DAY/2),fav=S.tab=='fav';let all;
  if(fav)all=[...ITEMS,...extras(),...dietItems(lo,hi,true)].filter(i=>isFav(i)||(i.src=='diet'&&i.today)||(i.src=='sports'&&PS.hasAnyPick(i.sport,i.raw.id)));
  else all=liveList(W);
  all=all.filter(i=>!S.hide.includes(i.src));
@@ -543,7 +545,7 @@ function render(){if(!READY||BOOT)return;now=Date.now();const W=30*DAY0,lo=now-W
   if(S.sort=='new'){const dd=new Date(i.ts);dd.setHours(0,0,0,0);const dk=dd.getTime();if(dk!==lastDay){lastDay=dk;const df=Math.round((dk-t0.getTime())/DAY),dv=document.createElement('div');dv.className='daydiv';dv.innerHTML=(df==0?'Today':df==1?'Tomorrow':df==-1?'Yesterday':dd.toLocaleDateString('en-US',{weekday:'long'}))+`<small>${dd.toLocaleDateString('en-US',{month:'short',day:'numeric'})}</small>`;out.push(dv)}}
   const sub=subOf(i),h=host(i),html=`<div class="tile-body${i.src=='sports'?' light-theme':''}"${i.src=='sports'?` data-sport="${SPN[i.sport]||i.sport}"`:''}><a class="tl-top" href="#/${i.src}" title="Open ${NAMES[i.src]} here"><span>${NAMES[i.src]}${sub?` <em>\u00b7 ${sub}</em>`:''}</span><span class="tl-go">\u2197</span></a>${TILE[i.src](i)}</div>`;
   if(h._h!==html){h._r.innerHTML=html;h._h=html}h.dataset.src=i.src;h.classList.remove('w2');out.push(h)}
- document.getElementById('grid').replaceChildren(...new Set(out));RENDERS++;ticker();
+ document.getElementById('grid').replaceChildren(...new Set(out));RENDERS++;if(!LOADING)hideLoading();ticker();
  const mb=document.getElementById('moreBtn');mb.style.display=SHOWN<LASTTOTAL?'inline-block':'none';mb.textContent=`Load more (${LASTTOTAL-SHOWN} left)`;
  if(!render.t)render.t=setTimeout(()=>{render.t=0;const m=document.getElementById('more').getBoundingClientRect();if(m.top<innerHeight+900&&SHOWN<LASTTOTAL){SHOWN+=60;render()}},60)}
 function ui(){const btn=(a,k,v,n)=>`<button class="tab ${S[k]==v?'on':''}" data-${a}="${v}">${n}</button>`;
@@ -551,12 +553,12 @@ function ui(){const btn=(a,k,v,n)=>`<button class="tab ${S[k]==v?'on':''}" data-
  document.getElementById('sorts').innerHTML=SORTS.map(([v,n])=>btn('sort','sort',v,n)).join('');
  document.getElementById('srcs').innerHTML=['sports','movies','music','software','stocks','trends','deals','diet'].map(k=>`<button class="chip2 ${S.hide.includes(k)?'':'on'}" data-hide="${k}"${S.hide.includes(k)?'':` style="background:${COLORS[k]}"`}>${NAMES[k]}</button>`).join('');}
 document.addEventListener('click',e=>{const t=e.target,d=t.dataset;if(!d)return;let ch=0,pre=null;
- if(d.tab){S.tab=d.tab;sc('ts_tab',S.tab);ch=1;SHOWN=60;scrollTo(0,0);if(S.tab=='fav'&&!BOOT)pre=favMovies}
- if(d.sort){S.sort=d.sort;sc('ts_sort2',S.sort);ch=1;SHOWN=60;scrollTo(0,0)}
+ if(d.tab){S.tab=d.tab;sc('ts_tab',S.tab);ch=1;if(S.tab=='fav'&&!BOOT)pre=favMovies}
+ if(d.sort){S.sort=d.sort;sc('ts_sort2',S.sort);ch=1}
  if(d.win){S.win=d.win;sc('ts_win',S.win);ch=1}
  if(d.hide){const k=d.hide,i=S.hide.indexOf(k);i<0?S.hide.push(k):S.hide.splice(i,1);sc('ts_hide',S.hide);ch=1}
- if(ch){ORD={};SHOWN=60;ui();renderSoon(pre)}});
-let busy=0;const more=()=>{if(busy||SHOWN>=LASTTOTAL)return;busy=1;SHOWN+=60;render();setTimeout(()=>{busy=0},200)};
+ if(ch){ORD={};SHOWN=24;ui();renderSoon(pre)}});
+let busy=0;const more=()=>{if(busy||LOADING||SHOWN>=LASTTOTAL)return;busy=1;SHOWN+=60;render();setTimeout(()=>{busy=0},200)};
 new IntersectionObserver(es=>{if(es.some(x=>x.isIntersecting))more()},{rootMargin:'900px'}).observe(document.getElementById('more'));
 addEventListener('scroll',()=>{if(innerHeight+scrollY>document.documentElement.scrollHeight-1400)more()},{passive:true});
 document.getElementById('moreBtn').onclick=more;
