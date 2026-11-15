@@ -110,6 +110,9 @@ body.site-mode #back{display:flex}
  .srcs{gap:5px}
  .chip2{font-size:10px;padding:3.4px 9px;letter-spacing:.06em}
 }
+.loading{grid-column:1/-1;text-align:center;padding:90px 0 120px;font:600 18px Oswald,sans-serif;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);animation:ldpulse 1.2s ease-in-out infinite}
+@keyframes ldpulse{50%{opacity:.4}}
+@media(prefers-reduced-motion:reduce){.loading{animation:none}}
 @media(min-width:701px){.disco{overflow:hidden}}
 </style></head><body>
 <header class="disco">
@@ -409,7 +412,7 @@ function stkTile(i){const st=i.raw,sym=st.sym,q=encodeURIComponent(sym),site=st.
  const line=(px,d,pct,ext)=>`<div class="pline${ext?' ext':''}" title="${ext?extFull:(hasExt?'Regular-session price and change'+(st.ext=='pre'?' (the last close)':''):'Price and change since the previous close')}">${ext?`<i>${extName}</i>`:''}<span class="px">${stkUsd(px)}</span>${pct==null?'':`<span class="dlt ${stkCls(pct)}">${d==null?'':stkPts(d)+' '}${stkSign(pct)} ${stkArrow(pct)}</span>`}</div>`;
  const priceBox=`<div class="pricebox">${line(regPrice,st.rch,regPct,false)}${hasExt?line(st.p,st.ech,st.ec,true):''}</div>`;
  return`<article class="card"><div class="thumb-wrap"><img src="${esc(site?fav(host):logo)}" data-next="${esc(site?logo:'')}" data-sym="${esc(sym.slice(0,4))}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="logoErr(this)">${favT(i)}<div class="rank-pill">#${i.rank}</div></div>
- <div class="body"><div class="ticker-row"><p class="ticker"><a href="https://finance.yahoo.com/quote/${q}" target="_blank" rel="noopener noreferrer" title="Open ${esc(sym)} on Yahoo Finance">${esc(sym)}</a></p></div>${priceBox}
+ <div class="body"><div class="ticker-row"><p class="ticker"><a href="https://finance.yahoo.com/quote/${q}" target="_blank" rel="noopener noreferrer" title="Open ${esc(sym)} on Yahoo Finance">${esc(sym)}<span class="arrow" aria-hidden="true">\u2197</span></a></p></div>${priceBox}
  <p class="name">${esc(st.n||'')}${st.mc?` \u00b7 ${stkMoney(st.mc)}`:''}</p>${st.why?`<p class="why">${esc(st.why)}</p>`:''}
  <div class="chips"><div class="chip" title="The regular-session change, which Gainers and Losers are ranked on"><small>Chg</small><span class="val ${stkCls(stkChg)}">${stkChg==null?'\u2014':stkSign(stkChg)}</span>${rk(st.rks&&st.rks[0]?0:1)}</div>
  <div class="chip" title="Shares traded today"><small>Volume</small><span class="val">${stkShares(st.v)}</span>${rk(2)}</div>
@@ -512,6 +515,13 @@ function stabilize(all){if(!SETTLED)return all;const key=S.tab+'|'+S.sort+'|'+S.
  for(const n of all){if(!by.has(n.id))continue;by.delete(n.id);
   if(S.sort=='new'){const k=out.findIndex(x=>x.ts<n.ts);k<0?out.push(n):out.splice(k,0,n)}else out.push(n)}
  ORD[key]=out.map(i=>i.id);return out}
+// simple loading screen: paint "Loading..." first, then do the heavy draw (so a tab / sort / source change never freezes on the old view)
+let LTOK=0,RENDERS=0;
+function showLoading(){const d=document.createElement('div');d.className='loading';d.setAttribute('role','status');d.textContent='Loading\u2026';
+ document.getElementById('grid').replaceChildren(d);document.getElementById('count').textContent='';document.getElementById('moreBtn').style.display='none'}
+function renderSoon(pre){const t=++LTOK;showLoading();
+ requestAnimationFrame(()=>setTimeout(async()=>{if(t!==LTOK)return;const m=RENDERS;if(pre){try{await pre()}catch{}}   // pre (Favorites: fetch saved movies) draws by itself through add()
+  if(t!==LTOK)return;if(RENDERS===m)render();scrollTo({top:Math.max(0,document.querySelector('.controls').offsetTop-8)})},40))}
 function render(){if(!READY||BOOT)return;now=Date.now();const W=30*DAY0,lo=now-W,hi=now+Math.min(W,DAY/2),fav=S.tab=='fav';let all;
  if(fav)all=[...ITEMS,...extras(),...dietItems(lo,hi,true)].filter(i=>isFav(i)||(i.src=='diet'&&i.today)||(i.src=='sports'&&PS.hasAnyPick(i.sport,i.raw.id)));
  else all=liveList(W);
@@ -529,19 +539,19 @@ function render(){if(!READY||BOOT)return;now=Date.now();const W=30*DAY0,lo=now-W
   if(S.sort=='new'){const dd=new Date(i.ts);dd.setHours(0,0,0,0);const dk=dd.getTime();if(dk!==lastDay){lastDay=dk;const df=Math.round((dk-t0.getTime())/DAY),dv=document.createElement('div');dv.className='daydiv';dv.innerHTML=(df==0?'Today':df==1?'Tomorrow':df==-1?'Yesterday':dd.toLocaleDateString('en-US',{weekday:'long'}))+`<small>${dd.toLocaleDateString('en-US',{month:'short',day:'numeric'})}</small>`;out.push(dv)}}
   const sub=subOf(i),h=host(i),html=`<div class="tile-body${i.src=='sports'?' light-theme':''}"${i.src=='sports'?` data-sport="${SPN[i.sport]||i.sport}"`:''}><a class="tl-top" href="#/${i.src}" title="Open ${NAMES[i.src]} here"><span>${NAMES[i.src]}${sub?` <em>\u00b7 ${sub}</em>`:''}</span><span class="tl-go">\u2197</span></a>${TILE[i.src](i)}</div>`;
   if(h._h!==html){h._r.innerHTML=html;h._h=html}h.dataset.src=i.src;h.classList.remove('w2');out.push(h)}
- document.getElementById('grid').replaceChildren(...new Set(out));ticker();
+ document.getElementById('grid').replaceChildren(...new Set(out));RENDERS++;ticker();
  const mb=document.getElementById('moreBtn');mb.style.display=SHOWN<LASTTOTAL?'inline-block':'none';mb.textContent=`Load more (${LASTTOTAL-SHOWN} left)`;
  if(!render.t)render.t=setTimeout(()=>{render.t=0;const m=document.getElementById('more').getBoundingClientRect();if(m.top<innerHeight+900&&SHOWN<LASTTOTAL){SHOWN+=60;render()}},60)}
 function ui(){const btn=(a,k,v,n)=>`<button class="tab ${S[k]==v?'on':''}" data-${a}="${v}">${n}</button>`;
  document.getElementById('tabs').innerHTML=[['live','Live stream'],['fav','Favorites']].map(([v,n])=>btn('tab','tab',v,n)).join('');
  document.getElementById('sorts').innerHTML=SORTS.map(([v,n])=>btn('sort','sort',v,n)).join('');
  document.getElementById('srcs').innerHTML=['sports','movies','music','software','stocks','trends','deals','diet'].map(k=>`<button class="chip2 ${S.hide.includes(k)?'':'on'}" data-hide="${k}"${S.hide.includes(k)?'':` style="background:${COLORS[k]}"`}>${NAMES[k]}</button>`).join('');}
-document.addEventListener('click',e=>{const t=e.target,d=t.dataset;if(!d)return;let ch=0;
- if(d.tab){S.tab=d.tab;sc('ts_tab',S.tab);ch=1;SHOWN=60;scrollTo(0,0);if(S.tab=='fav')favMovies()}
+document.addEventListener('click',e=>{const t=e.target,d=t.dataset;if(!d)return;let ch=0,pre=null;
+ if(d.tab){S.tab=d.tab;sc('ts_tab',S.tab);ch=1;SHOWN=60;scrollTo(0,0);if(S.tab=='fav'&&!BOOT)pre=favMovies}
  if(d.sort){S.sort=d.sort;sc('ts_sort2',S.sort);ch=1;SHOWN=60;scrollTo(0,0)}
  if(d.win){S.win=d.win;sc('ts_win',S.win);ch=1}
  if(d.hide){const k=d.hide,i=S.hide.indexOf(k);i<0?S.hide.push(k):S.hide.splice(i,1);sc('ts_hide',S.hide);ch=1}
- if(ch){ORD={};SHOWN=60;ui();render();scrollTo({top:Math.max(0,document.querySelector('.controls').offsetTop-8)})}});
+ if(ch){ORD={};SHOWN=60;ui();renderSoon(pre)}});
 let busy=0;const more=()=>{if(busy||SHOWN>=LASTTOTAL)return;busy=1;SHOWN+=60;render();setTimeout(()=>{busy=0},200)};
 new IntersectionObserver(es=>{if(es.some(x=>x.isIntersecting))more()},{rootMargin:'900px'}).observe(document.getElementById('more'));
 addEventListener('scroll',()=>{if(innerHeight+scrollY>document.documentElement.scrollHeight-1400)more()},{passive:true});
@@ -600,6 +610,6 @@ requestAnimationFrame(()=>requestAnimationFrame(kick));[150,500,1200,2500,5000].
 addEventListener('load',kick);addEventListener('pageshow',kick);document.addEventListener('visibilitychange',()=>{if(!document.hidden)kick()});
 document.fonts&&document.fonts.ready.then(()=>{slope();kick()});[300,1200,3000].forEach(ms=>setTimeout(slope,ms));
 addEventListener('storage',render);setInterval(render,60000);
-sheets();const bootDone=()=>{if(!BOOT)return;BOOT=false;render();kick()};
+showLoading();sheets();const bootDone=()=>{if(!BOOT)return;BOOT=false;render();kick()};
 Promise.allSettled([movies,music,software,stocks,deals,sports,trends,diet,scores].map(f=>{try{return Promise.resolve(f())}catch(e){return Promise.resolve()}})).then(()=>{bootDone();SETTLED=true;ORD={};render()});setTimeout(bootDone,8000);   // first draw when everything has arrived (or after 8s)
 </script></body></html>

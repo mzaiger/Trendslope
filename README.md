@@ -35,6 +35,7 @@ The trending, deals and diet feeds ignore the date filter on purpose. They alway
 
 ## Favorites and saved settings
 
+- **Loading.** Changing the tab, sort or a source chip, and the first load, show a plain "Loading…" right away and then draw the tiles a moment later, so the page never sits frozen on the old view.
 - Stars are stored per site in the browser (`movies_favs`, `music_favs`, `stocks_favs` and so on), using the same storage as each site, so a favorite saved here shows up there and the other way round.
 - Sports picks use the same `pick_<sport>_<id>` cookies as the Sports Dashboard.
 - A starred stock only shows on the Favorites tab while it is on the Stocks board (the Stocks site shows it greyed out when it is not).
