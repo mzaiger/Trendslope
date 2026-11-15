@@ -15,7 +15,7 @@ Each tile type has its own rules:
 | Source | Repo | What goes into the Live Stream |
 | --- | --- | --- |
 | **Sports** | `SportsDashboard` | NFL, NHL, MLB, NBA, college football and college basketball. The day's top 2 matchups per sport (by `matchup_rank`), through the end of tomorrow. Live scores are added to tiles. |
-| **Movies** | `Movies` | The Movies site's overall board for the last 3 months. A movie is ranked if it has a box office of $100K or more, or both a Rotten Tomatoes score and an IMDb rating, and the tile date is the release date. |
+| **Movies** | `Movies` | The Movies site's overall board for the last 3 months. A movie is ranked if it has a box office of $2M or more (or $1M or more with a Rotten Tomatoes or IMDb score), or both a Rotten Tomatoes score and an IMDb rating, and the tile date is the release date. |
 | **Music** | `Music` | The Music site's all-sources list. Each link button (Spotify, Apple, Video, Billboard) shows that service's favicon. |
 | **Software** | `Software` | Top GitHub (stars), Steam (most played) and App Store (Apple ranking) lists. The Open button on each tile shows that store's favicon. |
 | **Stocks** | `Stocks` | The Stocks site's overall board (its All tab): stocks that are on at least 2 of its 4 rankings (Gainers, Losers, Most Active, Buzz), in that board's order. Losers appear on the tile with a red negative change; the Chg box shows the stock's Gainers or Losers rank. The tile time is when the stock started trending (the "35m ago" on the tile). The board has no time window of its own: it is the latest snapshot, refreshed every 15 minutes on business days. |
