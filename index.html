@@ -500,6 +500,17 @@ function mix(items,seed){const by=new Map();for(const i of items){if(!by.has(i.s
  return out}
 // date order stays, but only between 4-hour blocks: inside a block the sources are mixed
 function mixBlocks(sorted){const out=[];let cur=[],key=null;for(const i of sorted){const k=blockKey(i.ts);if(cur.length&&k!==key){out.push(...mix(cur,key));cur=[]}key=k;cur.push(i)}if(cur.length)out.push(...mix(cur,key));return out}
+// Stable order: once the first draw is done, tiles never move. When a JSON feed updates (or the clock moves a window / the 4-hour mix seed), tiles that are
+// already on the page keep their place and their own order; tiles that dropped out simply vanish; new tiles are slotted in by date (Latest) or added at the end (Popular).
+// The order is rebuilt only on page load or when the tab, sort or a source chip changes.
+let ORD={},SETTLED=false;
+function stabilize(all){if(!SETTLED)return all;const key=S.tab+'|'+S.sort+'|'+S.hide.join(','),prev=ORD[key];
+ if(!prev){ORD[key]=all.map(i=>i.id);return all}
+ const by=new Map(all.map(i=>[i.id,i])),out=[];
+ for(const id of prev)if(by.has(id)){out.push(by.get(id));by.delete(id)}
+ for(const n of all){if(!by.has(n.id))continue;by.delete(n.id);
+  if(S.sort=='new'){const k=out.findIndex(x=>x.ts<n.ts);k<0?out.push(n):out.splice(k,0,n)}else out.push(n)}
+ ORD[key]=out.map(i=>i.id);return out}
 function render(){if(!READY||BOOT)return;now=Date.now();const W=30*DAY0,lo=now-W,hi=now+Math.min(W,DAY/2),fav=S.tab=='fav';let all;
  if(fav)all=[...ITEMS,...extras(),...dietItems(lo,hi,true)].filter(i=>isFav(i)||(i.src=='diet'&&i.today)||(i.src=='sports'&&PS.hasAnyPick(i.sport,i.raw.id)));
  else all=liveList(W);
@@ -510,7 +521,7 @@ function render(){if(!READY||BOOT)return;now=Date.now();const W=30*DAY0,lo=now-W
  else{const dI=all.filter(i=>i.src=='diet'),cl=[...dI].sort((a,b)=>Math.abs(a.ts-now)-Math.abs(b.ts-now))[0],dk=x=>x===cl?-1:x.ts>cl.ts?x.ts-cl.ts:1e13+(cl.ts-x.ts);   // closest meal first (before or after now), then forward in time only; earlier meals trail
   dI.sort((a,b)=>dk(a)-dk(b)).forEach((x,k)=>{x.rk=k+1});all.forEach(i=>{if(i.src!='diet')i.rk=i.rank||1e6});
   all.sort((a,b)=>a.rk-b.rk||b.ts-a.ts);all=mix(all,blockKey(now))}   // ranking order inside each source (the most recent wins a tie); the sources take turns, reshuffled every 4 hours
- LASTTOTAL=all.length;render.all=all;document.getElementById('count').textContent=all.length+' tiles';
+ all=stabilize(all);LASTTOTAL=all.length;render.all=all;document.getElementById('count').textContent=all.length+' tiles';
  const list=all.slice(0,SHOWN);CUR.clear();list.forEach(i=>CUR.set(i.id,i));
  const out=[];let lastDay='';const t0=new Date(now);t0.setHours(0,0,0,0);
  for(const i of list){if(!TILE[i.src])continue;
@@ -529,7 +540,7 @@ document.addEventListener('click',e=>{const t=e.target,d=t.dataset;if(!d)return;
  if(d.sort){S.sort=d.sort;sc('ts_sort2',S.sort);ch=1;SHOWN=60;scrollTo(0,0)}
  if(d.win){S.win=d.win;sc('ts_win',S.win);ch=1}
  if(d.hide){const k=d.hide,i=S.hide.indexOf(k);i<0?S.hide.push(k):S.hide.splice(i,1);sc('ts_hide',S.hide);ch=1}
- if(ch){SHOWN=60;ui();render();scrollTo({top:Math.max(0,document.querySelector('.controls').offsetTop-8)})}});
+ if(ch){ORD={};SHOWN=60;ui();render();scrollTo({top:Math.max(0,document.querySelector('.controls').offsetTop-8)})}});
 let busy=0;const more=()=>{if(busy||SHOWN>=LASTTOTAL)return;busy=1;SHOWN+=60;render();setTimeout(()=>{busy=0},200)};
 new IntersectionObserver(es=>{if(es.some(x=>x.isIntersecting))more()},{rootMargin:'900px'}).observe(document.getElementById('more'));
 addEventListener('scroll',()=>{if(innerHeight+scrollY>document.documentElement.scrollHeight-1400)more()},{passive:true});
@@ -589,5 +600,5 @@ addEventListener('load',kick);addEventListener('pageshow',kick);document.addEven
 document.fonts&&document.fonts.ready.then(()=>{slope();kick()});[300,1200,3000].forEach(ms=>setTimeout(slope,ms));
 addEventListener('storage',render);setInterval(render,60000);
 sheets();const bootDone=()=>{if(!BOOT)return;BOOT=false;render();kick()};
-Promise.allSettled([movies,music,software,stocks,deals,sports,trends,diet,scores].map(f=>{try{return Promise.resolve(f())}catch(e){return Promise.resolve()}})).then(bootDone);setTimeout(bootDone,8000);   // first draw when everything has arrived (or after 8s)
+Promise.allSettled([movies,music,software,stocks,deals,sports,trends,diet,scores].map(f=>{try{return Promise.resolve(f())}catch(e){return Promise.resolve()}})).then(()=>{bootDone();SETTLED=true;ORD={};render()});setTimeout(bootDone,8000);   // first draw when everything has arrived (or after 8s)
 </script></body></html>
