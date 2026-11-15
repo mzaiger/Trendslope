@@ -50,6 +50,7 @@ main{ max-width:1700px; margin:0 auto; padding:0 24px 60px; }
 .more[hidden]{ display:none; }
 .open-link{ display:flex; align-items:center; justify-content:center; gap:6px; height:40px; margin-top:auto; background:var(--panel); border:1px solid var(--line); border-radius:8px; color:var(--blue); text-decoration:none; font-family:'IBM Plex Mono',monospace; font-size:13px; font-weight:600; transition:border-color .15s ease, background .15s ease; }
 .open-link:hover{ border-color:var(--blue); background:#fff; }
+.open-ico{ width:20px; height:20px; border-radius:4px; flex:none; display:block; }
 .meta{ display:flex; justify-content:space-between; align-items:center; gap:8px; margin-top:10px; padding-top:10px; border-top:1px solid var(--line); font-family:'IBM Plex Mono',monospace; font-size:12.5px; color:var(--text-dim); }
 .meta b{ color:var(--text); font-weight:600; }
 .rows-wrap{ overflow-x:auto; }
