@@ -110,6 +110,29 @@ body.site-mode #back{display:flex}
  .srcs{gap:5px}
  .chip2{font-size:10px;padding:3.4px 9px;letter-spacing:.06em}
 }
+/* loading: slim progress bar under the controls, shimmering placeholder tiles, and a status card on Favorites */
+#loadbar{position:absolute;left:0;right:0;bottom:0;height:3px;border-radius:3px;overflow:hidden;opacity:0;pointer-events:none;transition:opacity .35s .15s}
+#loadbar.on{opacity:1;transition:none}
+#loadbar i{display:block;height:100%;width:6%;border-radius:3px;background:linear-gradient(90deg,#6a11cb,#ff2fa0,#ffb347);transition:width .45s ease}
+.skel{border:1px solid var(--line);border-radius:var(--radius);background:#fff;overflow:hidden}
+.skel.lite{opacity:.55}
+.skel .sk-th,.skel .sk-ln{background:linear-gradient(100deg,var(--panel) 30%,#fff 50%,var(--panel) 70%);background-size:300% 100%;animation:skel 1.5s ease-in-out infinite}
+.skel .sk-th{aspect-ratio:4/3}
+.skel .sk-bd{display:grid;gap:9px;padding:12px}
+.skel .sk-ln{display:block;height:11px;border-radius:6px}
+.skel .sk-ln.s{width:58%}
+@keyframes skel{from{background-position:100% 0}to{background-position:0 0}}
+.favload{grid-column:1/-1;display:flex;align-items:center;gap:14px;padding:14px 18px;border-radius:12px;background:var(--panel);border:1px solid var(--line)}
+.favload .spin{flex:none;width:26px;height:26px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--blue);animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.favload b{display:block;font:600 15px Oswald,sans-serif;letter-spacing:.08em;text-transform:uppercase}
+.favload .ldchips{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px}
+.favload .ldchips span{font:600 11px 'IBM Plex Mono',monospace;border:1px solid var(--line);background:#fff;color:var(--dim);border-radius:999px;padding:2px 9px}
+.favload .ldchips span.ok{color:#fff;border-color:transparent}
+.favload .ldchips span:not(.ok){animation:pulse 1.2s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.45}}
+.favload.empty{display:block;text-align:center;padding:26px 18px;color:var(--dim);font:500 13px 'IBM Plex Mono',monospace}
+@media(prefers-reduced-motion:reduce){.skel .sk-th,.skel .sk-ln,.favload .spin,.favload .ldchips span:not(.ok){animation:none}#loadbar i{transition:none}}
 @media(min-width:701px){.disco{overflow:hidden}}
 </style></head><body>
 <header class="disco">
@@ -130,6 +153,7 @@ body.site-mode #back{display:flex}
 
 <main>
  <div class="controls">
+  <div id="loadbar" aria-hidden="true"><i></i></div>
   <div class="tabs" id="tabs"></div>
   <div class="tabs" id="sorts"></div>
   <div class="mono"><span id="count"></span></div>
@@ -409,7 +433,7 @@ function stkTile(i){const st=i.raw,sym=st.sym,q=encodeURIComponent(sym),site=st.
  const line=(px,d,pct,ext)=>`<div class="pline${ext?' ext':''}" title="${ext?extFull:(hasExt?'Regular-session price and change'+(st.ext=='pre'?' (the last close)':''):'Price and change since the previous close')}">${ext?`<i>${extName}</i>`:''}<span class="px">${stkUsd(px)}</span>${pct==null?'':`<span class="dlt ${stkCls(pct)}">${d==null?'':stkPts(d)+' '}${stkSign(pct)} ${stkArrow(pct)}</span>`}</div>`;
  const priceBox=`<div class="pricebox">${line(regPrice,st.rch,regPct,false)}${hasExt?line(st.p,st.ech,st.ec,true):''}</div>`;
  return`<article class="card"><div class="thumb-wrap"><img src="${esc(site?fav(host):logo)}" data-next="${esc(site?logo:'')}" data-sym="${esc(sym.slice(0,4))}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="logoErr(this)">${favT(i)}<div class="rank-pill">#${i.rank}</div></div>
- <div class="body"><div class="ticker-row"><p class="ticker"><a href="https://finance.yahoo.com/quote/${q}" target="_blank" rel="noopener noreferrer" title="Open ${esc(sym)} on Yahoo Finance">${esc(sym)}</a></p></div>${priceBox}
+ <div class="body"><div class="ticker-row"><p class="ticker"><a href="https://finance.yahoo.com/quote/${q}" target="_blank" rel="noopener noreferrer" title="Open ${esc(sym)} on Yahoo Finance">${esc(sym)}<span class="arrow" aria-hidden="true">\u2197</span></a></p></div>${priceBox}
  <p class="name">${esc(st.n||'')}${st.mc?` \u00b7 ${stkMoney(st.mc)}`:''}</p>${st.why?`<p class="why">${esc(st.why)}</p>`:''}
  <div class="chips"><div class="chip" title="The regular-session change, which Gainers and Losers are ranked on"><small>Chg</small><span class="val ${stkCls(stkChg)}">${stkChg==null?'\u2014':stkSign(stkChg)}</span>${rk(st.rks&&st.rks[0]?0:1)}</div>
  <div class="chip" title="Shares traded today"><small>Volume</small><span class="val">${stkShares(st.v)}</span>${rk(2)}</div>
@@ -512,7 +536,23 @@ function stabilize(all){if(!SETTLED)return all;const key=S.tab+'|'+S.sort+'|'+S.
  for(const n of all){if(!by.has(n.id))continue;by.delete(n.id);
   if(S.sort=='new'){const k=out.findIndex(x=>x.ts<n.ts);k<0?out.push(n):out.splice(k,0,n)}else out.push(n)}
  ORD[key]=out.map(i=>i.id);return out}
-function render(){if(!READY||BOOT)return;now=Date.now();const W=30*DAY0,lo=now-W,hi=now+Math.min(W,DAY/2),fav=S.tab=='fav';let all;
+// ===== loading state =====
+// Live stream: a slim progress bar, a count like "Loading 3/9", and a few faded placeholder tiles.
+// Favorites: the same, plus a status card with a chip per source and one placeholder per saved favorite.
+const LOADERS=[[()=>movies(),'Movies','movies'],[()=>music(),'Music','music'],[()=>software(),'Software','software'],[()=>stocks(),'Stocks','stocks'],[()=>deals(),'Slickdeals','deals'],[()=>sports(),'Sports','sports'],[()=>trends(),'Trending','trends'],[()=>diet(),'Diet','diet'],[()=>scores(),'Scores','']];
+const LD={done:0,total:LOADERS.length,ok:new Set()};let FAVB=0;   // FAVB: Favorites-tab fetches still running after the first load
+const favCount=()=>{const n=k=>{const v=LS(k,null);return Array.isArray(v)?v.length:v&&typeof v=='object'?Object.keys(v).length:0};return n('movies_favs')+n('music_favs')+n('stocks_favs')+n('software_favs2')+n('trending_favorites')+n('slickdeals_favorites')};
+const skelTile=lite=>`<div class="skel${lite?' lite':''}" aria-hidden="true"><div class="sk-th"></div><div class="sk-bd"><i class="sk-ln"></i><i class="sk-ln s"></i><i class="sk-ln"></i></div></div>`;
+const chipsHtml=()=>LOADERS.filter(l=>l[2]).map(([,n,k])=>`<span${LD.ok.has(k)?` class="ok" style="background:${COLORS[k]}"`:''}>${n}${LD.ok.has(k)?' \u2713':''}</span>`).join('');
+const favCard=(msg,chips)=>`<div class="favload" role="status"><div class="spin"></div><div><b>${msg}</b>${chips?`<div class="ldchips" id="ldchips">${chipsHtml()}</div>`:''}</div></div>`;
+function loadUI(){const bar=document.getElementById('loadbar'),busy=LD.done<LD.total;bar.classList.toggle('on',busy);bar.firstElementChild.style.width=Math.max(6,Math.round(LD.done/LD.total*100))+'%';
+ if(BOOT)document.getElementById('count').textContent=`Loading ${LD.done}/${LD.total}\u2026`;
+ const c=document.getElementById('ldchips');if(c)c.innerHTML=chipsHtml()}
+function skelDraw(){const g=document.getElementById('grid'),fav=S.tab=='fav';if(skelDraw.k===S.tab&&g.firstChild)return;skelDraw.k=S.tab;
+ const n=fav?Math.min(9,Math.max(3,favCount())):6,t=document.createElement('template');
+ t.innerHTML=(fav?favCard('Loading your favorites\u2026',true):'')+Array.from({length:n},()=>skelTile(!fav)).join('');
+ g.replaceChildren(...t.content.childNodes);document.getElementById('more').style.visibility='hidden';loadUI()}
+function render(){if(BOOT){skelDraw();return}if(!READY)return;document.getElementById('more').style.visibility='';now=Date.now();const W=30*DAY0,lo=now-W,hi=now+Math.min(W,DAY/2),fav=S.tab=='fav';let all;
  if(fav)all=[...ITEMS,...extras(),...dietItems(lo,hi,true)].filter(i=>isFav(i)||(i.src=='diet'&&i.today)||(i.src=='sports'&&PS.hasAnyPick(i.sport,i.raw.id)));
  else all=liveList(W);
  all=all.filter(i=>!S.hide.includes(i.src));
@@ -529,6 +569,8 @@ function render(){if(!READY||BOOT)return;now=Date.now();const W=30*DAY0,lo=now-W
   if(S.sort=='new'){const dd=new Date(i.ts);dd.setHours(0,0,0,0);const dk=dd.getTime();if(dk!==lastDay){lastDay=dk;const df=Math.round((dk-t0.getTime())/DAY),dv=document.createElement('div');dv.className='daydiv';dv.innerHTML=(df==0?'Today':df==1?'Tomorrow':df==-1?'Yesterday':dd.toLocaleDateString('en-US',{weekday:'long'}))+`<small>${dd.toLocaleDateString('en-US',{month:'short',day:'numeric'})}</small>`;out.push(dv)}}
   const sub=subOf(i),h=host(i),html=`<div class="tile-body${i.src=='sports'?' light-theme':''}"${i.src=='sports'?` data-sport="${SPN[i.sport]||i.sport}"`:''}><a class="tl-top" href="#/${i.src}" title="Open ${NAMES[i.src]} here"><span>${NAMES[i.src]}${sub?` <em>\u00b7 ${sub}</em>`:''}</span><span class="tl-go">\u2197</span></a>${TILE[i.src](i)}</div>`;
   if(h._h!==html){h._r.innerHTML=html;h._h=html}h.dataset.src=i.src;h.classList.remove('w2');out.push(h)}
+ if(fav&&FAVB>0)out.unshift(Object.assign(document.createElement('div'),{innerHTML:favCard('Loading your favorites\u2026',false)}).firstChild);
+ else if(!out.length){const e=document.createElement('div');e.className='favload empty';e.textContent=fav?'No favorites yet. Tap the \u2605 on any tile to save it here.':'Nothing to show. Try turning a source back on above.';out.push(e)}
  document.getElementById('grid').replaceChildren(...new Set(out));ticker();
  const mb=document.getElementById('moreBtn');mb.style.display=SHOWN<LASTTOTAL?'inline-block':'none';mb.textContent=`Load more (${LASTTOTAL-SHOWN} left)`;
  if(!render.t)render.t=setTimeout(()=>{render.t=0;const m=document.getElementById('more').getBoundingClientRect();if(m.top<innerHeight+900&&SHOWN<LASTTOTAL){SHOWN+=60;render()}},60)}
@@ -537,7 +579,7 @@ function ui(){const btn=(a,k,v,n)=>`<button class="tab ${S[k]==v?'on':''}" data-
  document.getElementById('sorts').innerHTML=SORTS.map(([v,n])=>btn('sort','sort',v,n)).join('');
  document.getElementById('srcs').innerHTML=['sports','movies','music','software','stocks','trends','deals','diet'].map(k=>`<button class="chip2 ${S.hide.includes(k)?'':'on'}" data-hide="${k}"${S.hide.includes(k)?'':` style="background:${COLORS[k]}"`}>${NAMES[k]}</button>`).join('');}
 document.addEventListener('click',e=>{const t=e.target,d=t.dataset;if(!d)return;let ch=0;
- if(d.tab){S.tab=d.tab;sc('ts_tab',S.tab);ch=1;SHOWN=60;scrollTo(0,0);if(S.tab=='fav')favMovies()}
+ if(d.tab){S.tab=d.tab;sc('ts_tab',S.tab);ch=1;SHOWN=60;scrollTo(0,0);if(S.tab=='fav'&&!BOOT){FAVB++;loadUI();favMovies().catch(()=>{}).then(()=>{FAVB--;render()})}}
  if(d.sort){S.sort=d.sort;sc('ts_sort2',S.sort);ch=1;SHOWN=60;scrollTo(0,0)}
  if(d.win){S.win=d.win;sc('ts_win',S.win);ch=1}
  if(d.hide){const k=d.hide,i=S.hide.indexOf(k);i<0?S.hide.push(k):S.hide.splice(i,1);sc('ts_hide',S.hide);ch=1}
@@ -582,7 +624,7 @@ burger.onclick=e=>{e.stopPropagation();burger.setAttribute('aria-expanded',menu.
 menu.addEventListener('click',e=>{if(e.target.closest('a'))closeMenu()});
 document.addEventListener('click',e=>{if(!menu.contains(e.target)&&!burger.contains(e.target))closeMenu()});
 addEventListener('keydown',e=>{if(e.key==='Escape')closeMenu()});
-ui();slope();route();addEventListener('resize',slope);addEventListener('load',slope);addEventListener('orientationchange',()=>setTimeout(slope,250));
+ui();skelDraw();slope();route();addEventListener('resize',slope);addEventListener('load',slope);addEventListener('orientationchange',()=>setTimeout(slope,250));
 if(window.ResizeObserver)new ResizeObserver(slope).observe(document.querySelector('.disco'));if(window.visualViewport)visualViewport.addEventListener('resize',slope);
 // iOS/Android sometimes leave the clipped, animated banner unpainted on first load until something forces a re-layout (a zoom, a menu tap). Do that ourselves, a few times early on.
 // ticker scroll: driven by script, one small left-margin step per frame. A CSS transform animation inside the rotated, clipped banner is what stalls on iPhones until a zoom forces a recomposite.
@@ -600,6 +642,6 @@ requestAnimationFrame(()=>requestAnimationFrame(kick));[150,500,1200,2500,5000].
 addEventListener('load',kick);addEventListener('pageshow',kick);document.addEventListener('visibilitychange',()=>{if(!document.hidden)kick()});
 document.fonts&&document.fonts.ready.then(()=>{slope();kick()});[300,1200,3000].forEach(ms=>setTimeout(slope,ms));
 addEventListener('storage',render);setInterval(render,60000);
-sheets();const bootDone=()=>{if(!BOOT)return;BOOT=false;render();kick()};
-Promise.allSettled([movies,music,software,stocks,deals,sports,trends,diet,scores].map(f=>{try{return Promise.resolve(f())}catch(e){return Promise.resolve()}})).then(()=>{bootDone();SETTLED=true;ORD={};render()});setTimeout(bootDone,8000);   // first draw when everything has arrived (or after 8s)
+sheets();const bootDone=()=>{if(!BOOT)return;BOOT=false;render();loadUI();kick()};
+Promise.allSettled(LOADERS.map(([f,,k])=>{let p;try{p=Promise.resolve(f())}catch(e){p=Promise.resolve()}return p.catch(()=>{}).then(()=>{LD.done++;if(k)LD.ok.add(k);loadUI()})})).then(()=>{bootDone();SETTLED=true;ORD={};render();loadUI()});setTimeout(bootDone,8000);   // first draw when everything has arrived (or after 8s)
 </script></body></html>

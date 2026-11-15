@@ -35,6 +35,7 @@ The trending, deals and diet feeds ignore the date filter on purpose. They alway
 
 ## Favorites and saved settings
 
+- **Loading.** While the sources load, a slim progress bar runs under the tabs, the tile count reads "Loading 3/9…", and placeholder tiles shimmer in the grid. On the Favorites tab it is more visible: a status card shows each source as it finishes, with one placeholder per saved favorite. Opening Favorites after the first load shows the same card while saved movies are fetched. An empty Favorites tab says so instead of staying blank.
 - Stars are stored per site in the browser (`movies_favs`, `music_favs`, `stocks_favs` and so on), using the same storage as each site, so a favorite saved here shows up there and the other way round.
 - Sports picks use the same `pick_<sport>_<id>` cookies as the Sports Dashboard.
 - A starred stock only shows on the Favorites tab while it is on the Stocks board (the Stocks site shows it greyed out when it is not).
