@@ -207,11 +207,12 @@ async function movies(){const sc=await J(RAW(SITE.movies)+'data/scores.json');if
 async function music(){const d=await J(RAW(SITE.music)+'data/all.json');if(!d)return;
  add(d.items.map((i,n)=>({id:'mu'+i.id,src:'music',raw:i,rank:i.rank||n+1,title:i.title,ts:i.date?dts(i.date):NaN})).filter(x=>!isNaN(x.ts)))}
 async function software(){for(const f of['github','steam','itunes']){const d=await J(RAW(SITE.software)+`data/${f}.json`);if(d)add(d.items.filter(i=>i.date).map((i,n)=>({id:'sw'+f+i.id,src:'software',f,raw:i,rank:(i.ranks&&(i.ranks['12']??i.ranks['0']))||n+1,title:i.title,ts:dts(i.date)})))}}
-// Stocks: the Stocks site's overall board (All tab: a stock has to be on at least 2 of its 3 rankings, Gainers / Most Active / Buzz). The tile time is when the stock started trending.
+// Stocks: the Stocks site's overall board (All tab: a stock has to be on at least 2 of its 4 rankings, Gainers / Losers / Most Active / Buzz). The tile time is when the stock started trending.
 async function stocks(){const d=await J(RAW(SITE.stocks)+'data/board.json');if(!d||!d.stocks)return;
- const w=String((d.windows||[])[0]||''),rows=Object.entries(d.stocks).map(([sym,st])=>({sym,st,sc:(st.s||{})[w]})).filter(x=>x.sc);
+ const w=String((d.windows||[])[0]||''),nw=!!(d.sources&&'l' in d.sources),   // new board.json rows are [gain,loss,active,buzz,all,seen]; the old ones [gain,active,buzz,all,seen]
+ rows=Object.entries(d.stocks).map(([sym,st])=>{let sc=(st.s||{})[w];if(sc&&!nw)sc=[sc[0],null,sc[1],sc[2],sc[3],sc[4]];return{sym,st,sc}}).filter(x=>x.sc);
  const rk=n=>{const m=new Map();rows.filter(x=>(x.sc[n]||0)>0).sort((a,b)=>b.sc[n]-a.sc[n]||a.sym.localeCompare(b.sym)).forEach((x,k)=>m.set(x.sym,k+1));return m};   // rank on each of the site's tabs
- const R=[0,1,2].map(rk),board=rows.filter(x=>(x.sc[3]||0)>0).sort((a,b)=>b.sc[3]-a.sc[3]||a.sym.localeCompare(b.sym));
+ const R=[0,1,2,3].map(rk),board=rows.filter(x=>(x.sc[4]||0)>0).sort((a,b)=>b.sc[4]-a.sc[4]||a.sym.localeCompare(b.sym));
  add(board.map((x,k)=>({id:'st'+x.sym,src:'stocks',raw:{...x.st,sym:x.sym,rks:R.map(m=>m.get(x.sym)||0)},rank:k+1,title:(x.sym+' '+(x.st.n||'')).trim(),ts:Date.parse(x.st.since)})).filter(x=>!isNaN(x.ts)))}
 const hid=s=>{let h=5381;for(let i=0;i<s.length;i++)h=(h*33^s.charCodeAt(i))>>>0;return h.toString(36)};
 async function deals(){try{const seenD=new Set();const r=await fetch(RAW(SITE.deals)+'deals.xml?v='+Math.floor(now/3e5));const x=new DOMParser().parseFromString(await r.text(),'text/xml');
@@ -410,9 +411,9 @@ function stkTile(i){const st=i.raw,sym=st.sym,q=encodeURIComponent(sym),site=st.
  return`<article class="card"><div class="thumb-wrap"><img src="${esc(site?fav(host):logo)}" data-next="${esc(site?logo:'')}" data-sym="${esc(sym.slice(0,4))}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="logoErr(this)">${favT(i)}<div class="rank-pill">#${i.rank}</div></div>
  <div class="body"><div class="ticker-row"><p class="ticker"><a href="https://finance.yahoo.com/quote/${q}" target="_blank" rel="noopener noreferrer" title="Open ${esc(sym)} on Yahoo Finance">${esc(sym)}</a></p></div>${priceBox}
  <p class="name">${esc(st.n||'')}${st.mc?` \u00b7 ${stkMoney(st.mc)}`:''}</p>${st.why?`<p class="why">${esc(st.why)}</p>`:''}
- <div class="chips"><div class="chip" title="The change used for the ranking"><small>${st.ext?extName+' chg':'Chg'}</small><span class="val ${stkCls(st.c)}">${st.c==null?'\u2014':stkSign(st.c)}</span>${rk(0)}</div>
- <div class="chip" title="Shares traded today"><small>Volume</small><span class="val">${stkShares(st.v)}</span>${rk(1)}</div>
- <div class="chip" title="Reddit mentions in the last 24 hours, and the change from the 24 hours before"><small>Buzz</small><span class="val">${stkCount(st.m)}${surge?`<span class="pct ${surge[0]=='\u25b2'?'up':surge[0]=='\u25bc'?'down':''}">${surge}</span>`:''}</span>${rk(2)}</div></div>
+ <div class="chips"><div class="chip" title="The change used for the ranking"><small>${st.ext?extName+' chg':'Chg'}</small><span class="val ${stkCls(st.c)}">${st.c==null?'\u2014':stkSign(st.c)}</span>${rk(st.rks&&st.rks[0]?0:1)}</div>
+ <div class="chip" title="Shares traded today"><small>Volume</small><span class="val">${stkShares(st.v)}</span>${rk(2)}</div>
+ <div class="chip" title="Reddit mentions in the last 24 hours, and the change from the 24 hours before"><small>Buzz</small><span class="val">${stkCount(st.m)}${surge?`<span class="pct ${surge[0]=='\u25b2'?'up':surge[0]=='\u25bc'?'down':''}">${surge}</span>`:''}</span>${rk(3)}</div></div>
  ${st.since?`<p class="when"><span class="ago">${relT(st.since)}</span></p>`:''}<div class="links" style="grid-template-columns:repeat(${links.length},minmax(0,1fr))">${links.join('')}</div></div></article>`}
 const TILE={
 trends:i=>{const it=i.raw,src=TS[i.sk]||{l:'',o:''},h=Math.max(0,(now-Date.parse(it.started_trending))/36e5),vol=it.volume_unit==='hours'?(h<1?'<1hr trend':Math.floor(h)+'hr trend'):(it.volume||'');
