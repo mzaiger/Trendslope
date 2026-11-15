@@ -519,9 +519,13 @@ function stabilize(all){if(!SETTLED)return all;const key=S.tab+'|'+S.sort+'|'+S.
 let LTOK=0,RENDERS=0;
 function showLoading(){const d=document.createElement('div');d.className='loading';d.setAttribute('role','status');d.textContent='Loading\u2026';
  document.getElementById('grid').replaceChildren(d);document.getElementById('count').textContent='';document.getElementById('moreBtn').style.display='none'}
-function renderSoon(pre){const t=++LTOK;showLoading();
- requestAnimationFrame(()=>setTimeout(async()=>{if(t!==LTOK)return;const m=RENDERS;if(pre){try{await pre()}catch{}}   // pre (Favorites: fetch saved movies) draws by itself through add()
-  if(t!==LTOK)return;if(RENDERS===m)render();scrollTo({top:Math.max(0,document.querySelector('.controls').offsetTop-8)})},40))}
+const nextPaint=()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(()=>setTimeout(r,60))));   // resolves after the browser has really painted
+async function renderSoon(pre){const t=++LTOK;
+ const g=document.getElementById('grid');g.replaceChildren();showLoading();void g.offsetHeight;   // 1. old tiles out, "Loading..." in (the new choice is already blue: ui() ran first)
+ await nextPaint();await new Promise(r=>setTimeout(r,250));   // 2. let it show for a moment, even when the draw itself would be quick
+ if(t!==LTOK)return;const m=RENDERS;if(pre){try{await pre()}catch{}}   // pre (Favorites: fetch saved movies) draws by itself through add()
+ if(t!==LTOK)return;if(RENDERS===m)render();   // 3. tiles come up
+ scrollTo({top:Math.max(0,document.querySelector('.controls').offsetTop-8)})}
 function render(){if(!READY||BOOT)return;now=Date.now();const W=30*DAY0,lo=now-W,hi=now+Math.min(W,DAY/2),fav=S.tab=='fav';let all;
  if(fav)all=[...ITEMS,...extras(),...dietItems(lo,hi,true)].filter(i=>isFav(i)||(i.src=='diet'&&i.today)||(i.src=='sports'&&PS.hasAnyPick(i.sport,i.raw.id)));
  else all=liveList(W);
