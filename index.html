@@ -49,10 +49,10 @@ main{max-width:1700px;margin:0 auto;padding:0 24px 60px}
 @media(max-width:560px){.tile.w2{grid-column:span 1}}
 .daydiv{grid-column:1/-1;margin-top:14px;padding:7px 16px;border-radius:10px;color:#fff;font-family:Oswald,sans-serif;font-weight:600;font-size:14px;letter-spacing:.14em;text-transform:uppercase;background:linear-gradient(100deg,#2a0a4a,#6a11cb 45%,#ff2fa0);box-shadow:0 2px 10px rgba(106,17,203,.25)}
 .daydiv small{font-family:'IBM Plex Mono',monospace;letter-spacing:.05em;opacity:.8;margin-left:10px;font-size:11px;text-transform:none}
-.srcs{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 6px}
+.srcs{display:flex;flex-wrap:nowrap;gap:6px;margin:0 0 6px;overflow-x:auto;scrollbar-width:none}.srcs::-webkit-scrollbar{display:none}
 @media(min-width:701px){#menu{flex-wrap:wrap;justify-content:flex-end;max-width:calc(100% - 330px)}}
 .chip2{cursor:pointer;border:1px solid var(--line);background:#fff;color:var(--dim);border-radius:999px;padding:4px 13px;font:600 12px Oswald,sans-serif;letter-spacing:.1em;text-transform:uppercase}
-.chip2.on{color:#fff;border-color:transparent}
+.chip2.on{color:#fff;border-color:transparent}.chip2{white-space:nowrap;flex:0 0 auto}.chip2 .cs{display:none}
 
 body{position:relative}
 #menu{position:absolute;top:16px;right:20px;z-index:60;display:flex;gap:8px;flex-wrap:nowrap}
@@ -107,8 +107,9 @@ body.site-mode #back{display:flex}
  .tab{font-size:11px;padding:6px 9px;white-space:nowrap}
  .mono{font-size:10.2px}
  .btn{font-size:10.2px;padding:5px 9px}
- .srcs{gap:5px}
- .chip2{font-size:10px;padding:3.4px 9px;letter-spacing:.06em}
+ .srcs{gap:3px;overflow-x:visible}
+ .chip2{font-size:9px;padding:3.4px 4px;letter-spacing:.02em;flex:1 1 auto;min-width:0;text-align:center}
+ .chip2 .cf{display:none}.chip2 .cs{display:inline}
 }
 .loading{grid-column:1/-1;text-align:center;padding:90px 0 120px;font:600 18px Oswald,sans-serif;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);animation:ldpulse 1.2s ease-in-out infinite}
 @keyframes ldpulse{50%{opacity:.4}}
@@ -280,7 +281,7 @@ const SW={github:{open:'Open on GitHub',d:'github.com',m:it=>`<b>\u2605 ${fmtNum
 const baq=it=>encodeURIComponent(`${it.title||''} ${it.author||''}`.trim());
 const BAL={amazon:{l:'Amazon',s:'Amazon',d:'amazon.com',u:it=>`https://www.amazon.com/s?k=${baq(it)}&i=stripbooks`},amazonAu:{l:'Amazon',s:'Amazon',d:'amazon.com',u:it=>`https://www.amazon.com/s?k=${baq(it)}&i=audible`},gbooks:{l:'Google Books',s:'Google',d:'books.google.com',u:it=>`https://www.google.com/books?q=${baq(it)}`},apple:{l:'Apple Books',s:'Apple',d:'books.apple.com',u:it=>it.url},applepod:{l:'Apple Podcasts',s:'Apple',d:'podcasts.apple.com',u:it=>it.url},goodreads:{l:'Goodreads',s:'Goodreads',d:'goodreads.com',u:it=>`https://www.goodreads.com/search?q=${baq(it)}`},audible:{l:'Audible',s:'Audible',d:'audible.com',u:it=>`https://www.audible.com/search?keywords=${baq(it)}`},spotify:{l:'Spotify',s:'Spotify',d:'spotify.com',u:it=>`https://open.spotify.com/search/${baq(it)}`},ytpod:{l:'YouTube',s:'YouTube',d:'youtube.com',u:it=>`https://www.youtube.com/results?search_query=${encodeURIComponent((it.title||'')+' podcast')}`},amzmusic:{l:'Amazon Music',s:'Amazon',d:'music.amazon.com',u:it=>`https://music.amazon.com/search/${baq(it)}`}};
 const BAG={books:[['amazon','gbooks'],['apple','goodreads']],audiobooks:[['audible','amazonAu'],['apple','spotify']],podcasts:[['applepod','spotify'],['ytpod','amzmusic']]};   // two lines of two buttons on every tile
-const baLinks=(it,f)=>`<div class="links">${BAG[f].map(g=>`<div class="link-line">${g.map(k=>{const x=BAL[k],u=safeUrl(x.u(it));return u?`<a class="open-link" href="${esc(u)}" target="_blank" rel="noopener noreferrer" title="${esc(x.l)}"><img class="open-ico" src="https://www.google.com/s2/favicons?domain=${x.d}&sz=64" alt="" width="20" height="20" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none'"><span class="lbl"><span class="lf">${x.l}</span><span class="ls">${x.s}</span></span> <span>\u2197</span></a>`:''}).join('')}</div>`).join('')}</div>`;
+const baLinks=(it,f)=>`<div class="links">${BAG[f].map(g=>`<div class="link-line">${g.map(k=>{const x=BAL[k],u=safeUrl(x.u(it));return u?`<a class="open-link" href="${esc(u)}" target="_blank" rel="noopener noreferrer" title="${esc(x.l)}"><img class="open-ico" src="https://www.google.com/s2/favicons?domain=${x.d}&sz=64" alt="" width="20" height="20" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none'"><span class="lbl">${x.l}</span> <span>\u2197</span></a>`:''}).join('')}</div>`).join('')}</div>`;
 const SPORTS=(()=>{const DISPLAY_TZ=PS.DISPLAY_TZ;
 const MULTI_WORD_MASCOTS = new Set(['Red Wings','Blue Jackets','Maple Leafs','Golden Knights','Trail Blazers','Blue Jays','Red Sox','White Sox','Crimson Tide','Fighting Irish','Golden Gophers','Scarlet Knights','Blue Devils','Tar Heels','Demon Deacons','Yellow Jackets','Horned Frogs','Red Raiders','Sun Devils','Nittany Lions','Golden Eagles','Green Wave','Blue Hens','Mean Green','Black Knights','Golden Flashes','Thundering Herd','Rainbow Warriors','Fighting Illini','Red Wolves','Blue Raiders','Golden Hurricane','Wolf Pack','Fighting Hawks','Mountain Hawks','Golden Bears','Red Storm','Blue Jays','Fighting Camels','Delta Devils','Ragin Cajuns','Runnin Rebels','Golden Panthers','Big Green','Crimson Hawks','Seminoles']);
 const LOGO_ON_WHITE = new Set(['Penn State Nittany Lions','Iowa Hawkeyes','Ohio State Buckeyes','Texas A&M Aggies','Cincinnati Bearcats','Utah State Aggies','Wake Forest Demon Deacons','Kansas State Wildcats','Michigan State Spartans','Nevada Wolf Pack','Nevada Wolfpack','New York Giants','New York Jets','Los Angeles Rams','Carolina Panthers','San Diego Padres','New York Yankees','Colorado Rockies','Detroit Tigers','Kansas City Royals','Minnesota Twins','Oakland Athletics','Athletics','Washington Capitals','Tampa Bay Lightning','Toronto Maple Leafs','Dallas Stars','Utah Jazz','California Golden Bears','Virginia Cavaliers','Charlotte 49ers','Rice Owls','Baylor Bears','TCU Horned Frogs','West Virginia Mountaineers','New Mexico State Aggies','Toledo Rockets','San Diego State Aztecs']);
@@ -560,8 +561,8 @@ function render(){if(!READY||BOOT)return;LSC.clear();setTimeout(()=>LSC.clear(),
 function ui(){const btn=(a,k,v,n)=>`<button class="tab ${S[k]==v?'on':''}" data-${a}="${v}">${n}</button>`;
  document.getElementById('tabs').innerHTML=[['live','Live stream'],['fav','Favorites']].map(([v,n])=>btn('tab','tab',v,n)).join('');
  document.getElementById('sorts').innerHTML=SORTS.map(([v,n])=>btn('sort','sort',v,n)).join('');
- document.getElementById('srcs').innerHTML=['sports','movies','music','software','books','stocks','trends','deals','diet'].map(k=>`<button class="chip2 ${S.hide.includes(k)?'':'on'}" data-hide="${k}"${S.hide.includes(k)?'':` style="background:${COLORS[k]}"`}>${NAMES[k]}</button>`).join('');}
-document.addEventListener('click',e=>{const t=e.target,d=t.dataset;if(!d)return;let ch=0,pre=null;
+ document.getElementById('srcs').innerHTML=['sports','movies','music','software','books','stocks','trends','deals','diet'].map(k=>`<button class="chip2 ${S.hide.includes(k)?'':'on'}" data-hide="${k}"${S.hide.includes(k)?'':` style="background:${COLORS[k]}"`}><span class="cf">${NAMES[k]}</span><span class="cs">${({books:'Books',trends:'Trends',deals:'Deals',diet:'Diet'})[k]||NAMES[k]}</span></button>`).join('');}
+document.addEventListener('click',e=>{const t=(e.target.closest&&e.target.closest('.chip2'))||e.target,d=t.dataset;if(!d)return;let ch=0,pre=null;
  if(d.tab){S.tab=d.tab;sc('ts_tab',S.tab);ch=1;if(S.tab=='fav'&&!BOOT)pre=favMovies}
  if(d.sort){S.sort=d.sort;sc('ts_sort2',S.sort);ch=1}
  if(d.win){S.win=d.win;sc('ts_win',S.win);ch=1}
@@ -581,7 +582,7 @@ const shiftHdr=px=>{const hd=document.querySelector('.disco'),b=document.getElem
  hd.style.top=t;b&&(b.style.marginTop=t);m&&(m.style.marginTop=t)};
 let FOLLOW=0;
 const sportsBg=()=>{try{return getEffectiveTheme()==='light'?'#f5f7fc':'#0d1322'}catch{return '#0d1322'}};   // Sports follows its own dark/light choice (same fb_theme setting, same origin)
-const SITESCALE={movies:.8,music:.8,software:.8,books:.8,stocks:.8,trends:.75,deals:.6,sports:.85,diet:1},PSCALE=1,isMob=()=>matchMedia('(hover:none) and (pointer:coarse) and (max-width:700px)').matches;   // scaling is for phones only, never desktop
+const SITESCALE={movies:.8,music:.8,software:.8,books:.62,stocks:.8,trends:.75,deals:.6,sports:.85,diet:1},PSCALE=1,isMob=()=>matchMedia('(hover:none) and (pointer:coarse) and (max-width:700px)').matches;   // scaling is for phones only, never desktop
 function openSite(key,sub){location.hash='#/'+key+(sub?'/'+sub:'')}
 // a fresh iframe each time (its first load replaces the blank page instead of adding browser-history steps)
 function showSite(key,sub){const url=SITEURL(key,sub);if(!document.body.classList.contains('site-mode')){MAINY=scrollY;document.body.classList.add('site-mode')}
