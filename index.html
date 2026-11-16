@@ -125,7 +125,7 @@ body.site-mode #back{display:flex}
 </header>
 <button id="burger" aria-label="Menu" aria-expanded="false" aria-controls="menu"><span></span><span></span><span></span></button>
 <nav id="menu" aria-label="Sites">
- <a href="#/sports"><i style="background:#1B63E0"></i>Sports</a><a href="#/movies"><i style="background:#7B2CBF"></i>Movies</a><a href="#/music"><i style="background:#E0359B"></i>Music</a><a href="#/software"><i style="background:#0B7285"></i>Software</a><a href="#/stocks"><i style="background:#2B8A3E"></i>Stocks</a><a href="#/trends"><i style="background:#F08C00"></i>Trending Topics</a><a href="#/deals"><i style="background:#D9480F"></i>Slickdeals</a><a href="#/diet"><i style="background:#1E9E5A"></i>Single Man&rsquo;s Diet</a>
+ <a href="#/sports"><i style="background:#1B63E0"></i>Sports</a><a href="#/movies"><i style="background:#7B2CBF"></i>Movies</a><a href="#/music"><i style="background:#E0359B"></i>Music</a><a href="#/software"><i style="background:#0B7285"></i>Software</a><a href="#/books"><i style="background:#8D5524"></i>Books &amp; Audio</a><a href="#/stocks"><i style="background:#2B8A3E"></i>Stocks</a><a href="#/trends"><i style="background:#F08C00"></i>Trending Topics</a><a href="#/deals"><i style="background:#D9480F"></i>Slickdeals</a><a href="#/diet"><i style="background:#1E9E5A"></i>Single Man&rsquo;s Diet</a>
 </nav>
 <div id="siteview"></div>
 <button id="totop" type="button" aria-label="Jump back to top"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 15l7-7 7 7"/></svg> Top</button>
@@ -150,8 +150,8 @@ const U='mzaiger', BRANCH='main';
 const RAW=r=>`https://raw.githubusercontent.com/${U}/${r}/${BRANCH}/`;
 const SITEBASE=window.TS_BASE||'https://marcitech.is-a.dev/';
 const SITEURL=(key,sub)=>SITEBASE+SITE[key]+'/'+(sub||'');
-const SITE={diet:'SingleManDiet',trends:'TrendingTopics',movies:'Movies',music:'Music',software:'Software',stocks:'Stocks',deals:'SlickDealsTracker',sports:'SportsDashboard'};const TREND_FILES=[['social_media_trends.json','social_media'],['google_trends.json','google'],['reddit_trends.json','reddit']];
-const COLORS={diet:'#1E9E5A',deals:'#D9480F',sports:'#1B63E0',movies:'#7B2CBF',music:'#E0359B',software:'#0B7285',stocks:'#2B8A3E',trends:'#F08C00'};
+const SITE={diet:'SingleManDiet',trends:'TrendingTopics',movies:'Movies',music:'Music',software:'Software',books:'BookAudio',stocks:'Stocks',deals:'SlickDealsTracker',sports:'SportsDashboard'};const TREND_FILES=[['social_media_trends.json','social_media'],['google_trends.json','google'],['reddit_trends.json','reddit']];
+const COLORS={diet:'#1E9E5A',deals:'#D9480F',sports:'#1B63E0',movies:'#7B2CBF',music:'#E0359B',software:'#0B7285',books:'#8D5524',stocks:'#2B8A3E',trends:'#F08C00'};
 const SLOTS=[['Breakfast',8],['Brunch',10],['Lunch',12],['Dinner',19],['Late dinner',22]];
 const DAY0=864e5;
 const WINS=[['1h',36e5,'1 hour'],['1d',DAY0,'1 day'],['1w',7*DAY0,'1 week'],['1m',30*DAY0,'1 month']];
@@ -180,6 +180,7 @@ const FAV={
  music:{is:i=>kM(i)in LS('music_favs',{}),set:(i,on)=>mut('music_favs',{},o=>{const k=kM(i);on?o[k]={...i.raw,rank:i.rank,src:'all'}:delete o[k]})},
  stocks:{is:i=>LS('stocks_favs',[]).includes(i.raw.sym),set:(i,on)=>mut('stocks_favs',[],a=>{const x=new Set(a);on?x.add(i.raw.sym):x.delete(i.raw.sym);a.length=0;a.push(...x)})},
  software:{is:i=>kS(i)in LS('software_favs2',{}),set:(i,on)=>mut('software_favs2',{},o=>{const k=kS(i);on?o[k]={...i.raw,src:i.f}:delete o[k]})},
+ books:{is:i=>kS(i)in LS('ba_favs',{}),set:(i,on)=>mut('ba_favs',{},o=>{const k=kS(i);on?o[k]={...i.raw,src:i.f}:delete o[k]})},
  trends:{is:i=>kT(i)in LS('trending_favorites',{}),set:(i,on)=>mut('trending_favorites',{},o=>{const u=kT(i);on?o[u]={...i.raw,source:i.sk,uid:u}:delete o[u]})},
  deals:{is:i=>i.raw.link in LS('slickdeals_favorites',{}),set:(i,on)=>mut('slickdeals_favorites',{},o=>{on?o[i.raw.link]=i.raw:delete o[i.raw.link]})}};
 const isFav=i=>FAV[i.src]?FAV[i.src].is(i):false;
@@ -190,6 +191,7 @@ function extras(){const out=[],have=new Set(ITEMS.map(x=>x.id));
  for(const[k,v]of Object.entries(LS('music_favs',{})))if(v&&v.id&&!have.has('mu'+v.id)){const t=dts(v.date);out.push({id:'mu'+v.id,src:'music',raw:v,rank:v.rank||null,title:v.title,ts:isNaN(t)?now:t,fk:k})}
  for(const[k,v]of Object.entries(LS('software_favs2',{})))if(v&&v.id&&SW[v.src]&&!have.has('sw'+v.src+v.id)){const t=dts(v.date);out.push({id:'sw'+v.src+v.id,src:'software',f:v.src,raw:v,rank:(v.ranks&&(v.ranks['12']??v.ranks['0']))||null,title:v.title,ts:isNaN(t)?now:t,fk:k})}
  for(const v of Object.values(LS('trending_favorites',{})))if(v&&v.id&&v.source&&!have.has('tr'+v.source+v.id)){const t=tsTrend(v,v.source);out.push({id:'tr'+v.source+v.id,src:'trends',sk:v.source,raw:v,rank:+v.rank||null,title:v.topic,ts:isNaN(t)?now:t})}
+ for(const[k,v]of Object.entries(LS('ba_favs',{})))if(v&&v.id&&BAG[v.src]&&!have.has('ba'+v.src+v.id)){const t=dts(v.date);out.push({id:'ba'+v.src+v.id,src:'books',f:v.src,raw:v,rank:(v.ranks&&(v.ranks['12']??v.ranks['0']))||null,title:v.title,ts:isNaN(t)?now:t,fk:k})}
  for(const v of Object.values(LS('slickdeals_favorites',{})))if(v&&v.link&&!have.has('dl'+v.link.slice(-50))){const t=Date.parse(v.pubDateIso);out.push({id:'dl'+v.link.slice(-50),src:'deals',raw:v,rank:null,title:v.title,ts:isNaN(t)?now:t})}
  return out}
 // ===== loaders (each pushes items and re-renders as it arrives) =====
@@ -212,6 +214,7 @@ async function movies(){const sc=await J(RAW(SITE.movies)+'data/scores.json');if
 async function music(){const d=await J(RAW(SITE.music)+'data/all.json');if(!d)return;
  add(d.items.map((i,n)=>({id:'mu'+i.id,src:'music',raw:i,rank:i.rank||n+1,title:i.title,ts:i.date?dts(i.date):NaN})).filter(x=>!isNaN(x.ts)))}
 async function software(){for(const f of['github','steam','itunes']){const d=await J(RAW(SITE.software)+`data/${f}.json`);if(d)add(d.items.filter(i=>i.date).map((i,n)=>({id:'sw'+f+i.id,src:'software',f,raw:i,rank:(i.ranks&&(i.ranks['12']??i.ranks['0']))||n+1,title:i.title,ts:dts(i.date)})))}}
+async function booksAudio(){for(const f of['books','audiobooks','podcasts']){const d=await J(RAW(SITE.books)+`data/${f}.json`);if(d)add(d.items.filter(i=>i.date).map((i,n)=>({id:'ba'+f+i.id,src:'books',f,raw:i,rank:(i.ranks&&(i.ranks['12']??i.ranks['0']))||n+1,title:i.title,ts:dts(i.date)})))}}
 // Stocks: the Stocks site's overall board (All tab: a stock has to be on at least 2 of its 4 rankings, Gainers / Losers / Most Active / Buzz). The tile time is when the stock started trending.
 async function stocks(){const d=await J(RAW(SITE.stocks)+'data/board.json');if(!d||!d.stocks)return;
  const w=String((d.windows||[])[0]||''),nw=!!(d.sources&&'l' in d.sources),   // new board.json rows are [gain,loss,active,buzz,all,seen]; the old ones [gain,active,buzz,all,seen]
@@ -274,6 +277,10 @@ const NETS=[['facebook.com','Search Facebook',q=>`https://www.facebook.com/searc
  tNets=it=>{const q=encodeURIComponent(it.topic||'');return`<span class="net-icons wide">${NETS.map(([d,n,u])=>`<a href="${esc(u(q))}" target="_blank" rel="noopener noreferrer" title="${n}" aria-label="${n}">${tFav(d)}<span class="net-arrow" aria-hidden="true">\u2197</span></a>`).join('')}</span>`};
 const chg=it=>{if(it.is_new)return'<span class="chg new">NEW</span>';const c=it.rank_change;if(typeof c!='number')return'';return c>0?`<span class="chg up">\u25b2 ${c}</span>`:c<0?`<span class="chg down">\u25bc ${-c}</span>`:'<span class="chg same">\u2013</span>'};
 const SW={github:{open:'Open on GitHub',d:'github.com',m:it=>`<b>\u2605 ${fmtNum(it.metric)}</b> stars`},steam:{open:'Open on Steam',d:'store.steampowered.com',m:it=>`<b>\u{1F3AE} ${fmtNum(it.metric)}</b> playing`},itunes:{open:'Open on App Store',d:'apps.apple.com',m:it=>`<b>Apple #${it.metric}</b> chart`}};
+const baq=it=>encodeURIComponent(`${it.title||''} ${it.author||''}`.trim());
+const BAL={amazon:{l:'Amazon',s:'Amazon',d:'amazon.com',u:it=>`https://www.amazon.com/s?k=${baq(it)}&i=stripbooks`},amazonAu:{l:'Amazon',s:'Amazon',d:'amazon.com',u:it=>`https://www.amazon.com/s?k=${baq(it)}&i=audible`},gbooks:{l:'Google Books',s:'Google',d:'books.google.com',u:it=>`https://www.google.com/books?q=${baq(it)}`},apple:{l:'Apple Books',s:'Apple',d:'books.apple.com',u:it=>it.url},applepod:{l:'Apple Podcasts',s:'Apple',d:'podcasts.apple.com',u:it=>it.url},goodreads:{l:'Goodreads',s:'Goodreads',d:'goodreads.com',u:it=>`https://www.goodreads.com/search?q=${baq(it)}`},audible:{l:'Audible',s:'Audible',d:'audible.com',u:it=>`https://www.audible.com/search?keywords=${baq(it)}`},spotify:{l:'Spotify',s:'Spotify',d:'spotify.com',u:it=>`https://open.spotify.com/search/${baq(it)}`},ytpod:{l:'YouTube',s:'YouTube',d:'youtube.com',u:it=>`https://www.youtube.com/results?search_query=${encodeURIComponent((it.title||'')+' podcast')}`},amzmusic:{l:'Amazon Music',s:'Amazon',d:'music.amazon.com',u:it=>`https://music.amazon.com/search/${baq(it)}`}};
+const BAG={books:[['amazon','gbooks'],['apple','goodreads']],audiobooks:[['audible','amazonAu'],['apple','spotify']],podcasts:[['applepod','spotify'],['ytpod','amzmusic']]};   // two lines of two buttons on every tile
+const baLinks=(it,f)=>`<div class="links">${BAG[f].map(g=>`<div class="link-line">${g.map(k=>{const x=BAL[k],u=safeUrl(x.u(it));return u?`<a class="open-link" href="${esc(u)}" target="_blank" rel="noopener noreferrer" title="${esc(x.l)}"><img class="open-ico" src="https://www.google.com/s2/favicons?domain=${x.d}&sz=64" alt="" width="20" height="20" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none'"><span class="lbl"><span class="lf">${x.l}</span><span class="ls">${x.s}</span></span> <span>\u2197</span></a>`:''}).join('')}</div>`).join('')}</div>`;
 const SPORTS=(()=>{const DISPLAY_TZ=PS.DISPLAY_TZ;
 const MULTI_WORD_MASCOTS = new Set(['Red Wings','Blue Jackets','Maple Leafs','Golden Knights','Trail Blazers','Blue Jays','Red Sox','White Sox','Crimson Tide','Fighting Irish','Golden Gophers','Scarlet Knights','Blue Devils','Tar Heels','Demon Deacons','Yellow Jackets','Horned Frogs','Red Raiders','Sun Devils','Nittany Lions','Golden Eagles','Green Wave','Blue Hens','Mean Green','Black Knights','Golden Flashes','Thundering Herd','Rainbow Warriors','Fighting Illini','Red Wolves','Blue Raiders','Golden Hurricane','Wolf Pack','Fighting Hawks','Mountain Hawks','Golden Bears','Red Storm','Blue Jays','Fighting Camels','Delta Devils','Ragin Cajuns','Runnin Rebels','Golden Panthers','Big Green','Crimson Hawks','Seminoles']);
 const LOGO_ON_WHITE = new Set(['Penn State Nittany Lions','Iowa Hawkeyes','Ohio State Buckeyes','Texas A&M Aggies','Cincinnati Bearcats','Utah State Aggies','Wake Forest Demon Deacons','Kansas State Wildcats','Michigan State Spartans','Nevada Wolf Pack','Nevada Wolfpack','New York Giants','New York Jets','Los Angeles Rams','Carolina Panthers','San Diego Padres','New York Yankees','Colorado Rockies','Detroit Tigers','Kansas City Royals','Minnesota Twins','Oakland Athletics','Athletics','Washington Capitals','Tampa Bay Lightning','Toronto Maple Leafs','Dallas Stars','Utah Jazz','California Golden Bears','Virginia Cavaliers','Charlotte 49ers','Rice Owls','Baylor Bears','TCU Horned Frogs','West Virginia Mountaineers','New Mexico State Aggies','Toledo Rockets','San Diego State Aztecs']);
@@ -448,6 +455,8 @@ diet:i=>{const meal=i.meal,src=DS.getMealSource(meal),desired=i.desired,pending=
  regen=`<button type="button" class="regen-btn${pending?' needs-regen':''}" data-day="${i.day}" data-slot="${e(i.slot)}" title="${e(rt)}">regen</button>`,
  pick=`<button type="button" class="regen-btn pick-btn" data-day="${i.day}" data-slot="${e(i.slot)}" title="Pick this meal by hand from the product list" aria-label="Select this meal by hand">select</button>`;
  return`<div style="display:none">${DS.SM_SPRITE}</div><div class="day-card" data-wk="${i.wk}"><div class="day-header"><div class="day-name">${i.dn}<br><span class="day-date">${i.dt}</span></div><div class="day-header-totals"><div class="price">${tm}</div></div></div><div class="meal-row">${thumb}<div class="meal-info"><div class="meal-slot">${e(i.slot)}</div><div class="meal-name">${rest?`<span class="meal-brand">${e(rest)}</span>`:''}${e(name)}</div></div><div class="meal-money"><div class="meal-cal">${cal} cal*</div><div class="meal-price">${pd}</div><div class="meal-serving">Serving: ${e(serving)}</div>${DS.sourceControlHtml(i.day,i.slot,desired,src)}</div><div class="meal-actions${src==='frozen'?' frozen-actions':''}">${pick}${regen}${links}</div></div></div>`},
+books:i=>{const it=i.raw,url=safeUrl(it.url);
+ return`<article class="card"><div class="thumb-wrap ${i.f}">${url?`<a class="thumb-link" href="${esc(url)}" target="_blank" rel="noopener noreferrer">${imgT(it.image)}</a>`:imgT(it.image)}${favT(i)}<div class="rank-pill">#${i.rank}</div></div><div class="body"><p class="title">${url?`<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">${esc(it.title)}</a>`:esc(it.title)}</p>${it.author?`<p class="author">${esc(it.author)}</p>`:''}<p class="desc clamp">${esc(it.desc||'No description provided.')}</p>${baLinks(it,i.f)}<div class="meta"><span>${esc(fmtDate(it.date))}</span><span><b>Apple #${esc(it.metric)}</b> chart</span></div></div></article>`},
 stocks:i=>stkTile(i),
 software:i=>{const it=i.raw,S2=SW[i.f],url=safeUrl(it.url);
  return`<article class="card"><div class="thumb-wrap ${i.f}">${url?`<a class="thumb-link" href="${esc(url)}" target="_blank" rel="noopener noreferrer">${imgT(it.image)}</a>`:imgT(it.image)}${favT(i)}<div class="rank-pill">#${i.rank}</div></div><div class="body"><p class="title">${url?`<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">${esc(it.title)}</a>`:esc(it.title)}</p><p class="desc clamp">${esc(it.desc||'No description provided.')}</p>${url?`<a class="open-link" href="${esc(url)}" target="_blank" rel="noopener noreferrer"><img class="open-ico" src="https://www.google.com/s2/favicons?domain=${S2.d}&sz=64" alt="" width="20" height="20" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none'">${S2.open} <span>\u2197</span></a>`:''}<div class="meta"><span>${esc(fmtDate(it.date))}</span><span>${S2.m(it)}</span></div></div></article>`}};
@@ -458,9 +467,9 @@ BASE.replaceSync(':host{display:block}.tile-body{background:none!important;min-h
 async function sheets(){await Promise.all(Object.keys(TILE).map(async k=>{try{const t=await(await fetch(`css/${k}.css`)).text(),sh=new CSSStyleSheet();sh.replaceSync(t);SHEETS[k]=sh}catch{SHEETS[k]=new CSSStyleSheet()}}));READY=true;render()}
 const HOSTS=new Map();
 const SPORTL={nfl:'NFL',cfb:'College Football',nhl:'NHL',nba:'NBA',mlb:'MLB',ncaamb:'College Basketball'};
-const SUBS={social_media:'Social Media',google:'Google',reddit:'Reddit',github:'GitHub',steam:'Steam',itunes:'App Store'},SPN={cfb:'ncaaf'};
-const NAMES={movies:'Movies',music:'Music',software:'Software',stocks:'Stocks',trends:'Trending Topics',deals:'Slickdeals',sports:'Sports',diet:'Single Man\u2019s Diet'};
-const subOf=i=>i.src=='trends'?SUBS[i.sk]:i.src=='software'?SUBS[i.f]:i.src=='sports'?SPORTL[i.sport]:i.src=='diet'?(DS.getMealSource(i.meal)=='frozen'?'Frozen':'Fast Food'):'';
+const SUBS={social_media:'Social Media',google:'Google',reddit:'Reddit',github:'GitHub',steam:'Steam',itunes:'App Store',books:'Books',audiobooks:'Audio Books',podcasts:'Podcasts'},SPN={cfb:'ncaaf'};
+const NAMES={movies:'Movies',music:'Music',software:'Software',books:'Books & Audio',stocks:'Stocks',trends:'Trending Topics',deals:'Slickdeals',sports:'Sports',diet:'Single Man\u2019s Diet'};
+const subOf=i=>i.src=='trends'?SUBS[i.sk]:(i.src=='software'||i.src=='books')?SUBS[i.f]:i.src=='sports'?SPORTL[i.sport]:i.src=='diet'?(DS.getMealSource(i.meal)=='frozen'?'Frozen':'Fast Food'):'';
 let tileDrag=null;const srcPtr=(sl,e)=>{const r=sl.getBoundingClientRect();return(r.width&&(e.clientX-r.left)/r.width>=.5)?'fast':'frozen'};
 function host(i){let h=HOSTS.get(i.id);if(h)return h;h=document.createElement('div');h.className='tile';const r=h.attachShadow({mode:'open'});r.adoptedStyleSheets=[SHEETS[i.src],BASE];
  r.addEventListener('change',e=>{const t=e.target;if(t.classList&&t.classList.contains('fav-input')){const it=CUR.get(t.dataset.id);if(it&&FAV[it.src])FAV[it.src].set(it,t.checked)}});
@@ -551,7 +560,7 @@ function render(){if(!READY||BOOT)return;LSC.clear();setTimeout(()=>LSC.clear(),
 function ui(){const btn=(a,k,v,n)=>`<button class="tab ${S[k]==v?'on':''}" data-${a}="${v}">${n}</button>`;
  document.getElementById('tabs').innerHTML=[['live','Live stream'],['fav','Favorites']].map(([v,n])=>btn('tab','tab',v,n)).join('');
  document.getElementById('sorts').innerHTML=SORTS.map(([v,n])=>btn('sort','sort',v,n)).join('');
- document.getElementById('srcs').innerHTML=['sports','movies','music','software','stocks','trends','deals','diet'].map(k=>`<button class="chip2 ${S.hide.includes(k)?'':'on'}" data-hide="${k}"${S.hide.includes(k)?'':` style="background:${COLORS[k]}"`}>${NAMES[k]}</button>`).join('');}
+ document.getElementById('srcs').innerHTML=['sports','movies','music','software','books','stocks','trends','deals','diet'].map(k=>`<button class="chip2 ${S.hide.includes(k)?'':'on'}" data-hide="${k}"${S.hide.includes(k)?'':` style="background:${COLORS[k]}"`}>${NAMES[k]}</button>`).join('');}
 document.addEventListener('click',e=>{const t=e.target,d=t.dataset;if(!d)return;let ch=0,pre=null;
  if(d.tab){S.tab=d.tab;sc('ts_tab',S.tab);ch=1;if(S.tab=='fav'&&!BOOT)pre=favMovies}
  if(d.sort){S.sort=d.sort;sc('ts_sort2',S.sort);ch=1}
@@ -566,13 +575,13 @@ document.getElementById('moreBtn').onclick=more;
 // ===== menu + in-page viewer: the other sites open in an iframe under the Trendslope header =====
 let MAINY=0;const sv=document.getElementById('siteview');
 // each site's own mobile scale (its viewport tag's initial-scale), vs this page's 1.0
-const SITEBG={movies:'#FFFFFF',music:'#FFFFFF',software:'#FFFFFF',stocks:'#FFFFFF',trends:'#FFFFFF',deals:'#FFFFFF',sports:'#0d1322',diet:'#EEF2F0'},paint=c=>{document.documentElement.style.background=document.body.style.background=c||''};   // each site's own page color fills the strip under the slope, so the page drops in below it seamlessly
+const SITEBG={movies:'#FFFFFF',music:'#FFFFFF',software:'#FFFFFF',books:'#FFFFFF',stocks:'#FFFFFF',trends:'#FFFFFF',deals:'#FFFFFF',sports:'#0d1322',diet:'#EEF2F0'},paint=c=>{document.documentElement.style.background=document.body.style.background=c||''};   // each site's own page color fills the strip under the slope, so the page drops in below it seamlessly
 // banner scroll-away: plain top / margin offsets (no transforms or custom properties, which iOS Safari mishandles together with clip-path)
 const shiftHdr=px=>{const hd=document.querySelector('.disco'),b=document.getElementById('burger'),m=document.getElementById('menu'),t=px?-px+'px':'';
  hd.style.top=t;b&&(b.style.marginTop=t);m&&(m.style.marginTop=t)};
 let FOLLOW=0;
 const sportsBg=()=>{try{return getEffectiveTheme()==='light'?'#f5f7fc':'#0d1322'}catch{return '#0d1322'}};   // Sports follows its own dark/light choice (same fb_theme setting, same origin)
-const SITESCALE={movies:.8,music:.8,software:.8,stocks:.8,trends:.75,deals:.6,sports:.85,diet:1},PSCALE=1,isMob=()=>matchMedia('(hover:none) and (pointer:coarse) and (max-width:700px)').matches;   // scaling is for phones only, never desktop
+const SITESCALE={movies:.8,music:.8,software:.8,books:.8,stocks:.8,trends:.75,deals:.6,sports:.85,diet:1},PSCALE=1,isMob=()=>matchMedia('(hover:none) and (pointer:coarse) and (max-width:700px)').matches;   // scaling is for phones only, never desktop
 function openSite(key,sub){location.hash='#/'+key+(sub?'/'+sub:'')}
 // a fresh iframe each time (its first load replaces the blank page instead of adding browser-history steps)
 function showSite(key,sub){const url=SITEURL(key,sub);if(!document.body.classList.contains('site-mode')){MAINY=scrollY;document.body.classList.add('site-mode')}
@@ -581,7 +590,7 @@ function showSite(key,sub){const url=SITEURL(key,sub);if(!document.body.classLis
   const sk=(mobile&&s&&Math.abs(k-1)>.01)?k:1;
   cancelAnimationFrame(FOLLOW);
   f.addEventListener('load',()=>{try{const w=f.contentWindow,hd=document.querySelector('.disco'),root=w.document.documentElement;
-   const onBody=['movies','music','software','stocks','trends','deals'].includes(key),tgt=onBody?w.document.body:root,base=onBody?(parseFloat(w.getComputedStyle(tgt).paddingTop)||0):0;   // those sites paint their slight blue glow on <body>, so the space under the banner goes on <body> too (on <html> it would show plain white)
+   const onBody=['movies','music','software','books','stocks','trends','deals'].includes(key),tgt=onBody?w.document.body:root,base=onBody?(parseFloat(w.getComputedStyle(tgt).paddingTop)||0):0;   // those sites paint their slight blue glow on <body>, so the space under the banner goes on <body> too (on <html> it would show plain white)
    const pad=()=>{const extra=document.body.dataset.site=='diet'?(slope.rise||0):0;tgt.style.paddingTop=(base+(hd.offsetHeight-extra)/sk)+'px'};   // the site starts just under the banner...
    pad();addEventListener('resize',pad);
    cancelAnimationFrame(FOLLOW);
@@ -617,5 +626,5 @@ addEventListener('load',kick);addEventListener('pageshow',kick);document.addEven
 document.fonts&&document.fonts.ready.then(()=>{slope();kick()});[300,1200,3000].forEach(ms=>setTimeout(slope,ms));
 addEventListener('storage',render);setInterval(render,60000);
 showLoading();sheets();const bootDone=()=>{if(!BOOT)return;BOOT=false;render();kick()};
-Promise.allSettled([movies,music,software,stocks,deals,sports,trends,diet,scores].map(f=>{try{return Promise.resolve(f())}catch(e){return Promise.resolve()}})).then(()=>{bootDone();SETTLED=true;ORD={};render()});setTimeout(bootDone,8000);   // first draw when everything has arrived (or after 8s)
+Promise.allSettled([movies,music,software,booksAudio,stocks,deals,sports,trends,diet,scores].map(f=>{try{return Promise.resolve(f())}catch(e){return Promise.resolve()}})).then(()=>{bootDone();SETTLED=true;ORD={};render()});setTimeout(bootDone,8000);   // first draw when everything has arrived (or after 8s)
 </script></body></html>

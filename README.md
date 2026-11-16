@@ -1,6 +1,6 @@
 # Trendslope
 
-One page that pulls the best of my other sites into a single live feed: what's trending, the day's top games, new movies, deals, music, software, stocks, and today's meals. Tap a tile to open it, tap the star to save it, or open any of the full sites from the menu without leaving the page.
+One page that pulls the best of my other sites into a single live feed: what's trending, the day's top games, new movies, deals, music, software, books and audio, stocks, and today's meals. Tap a tile to open it, tap the star to save it, or open any of the full sites from the menu without leaving the page.
 
 It is a plain static site: one `index.html`, a few stylesheets, and no build step.
 
@@ -8,7 +8,7 @@ It is a plain static site: one `index.html`, a few stylesheets, and no build ste
 
 ## What it shows
 
-The page has two tabs, **Live Stream** and **Favorites**, and a **Popular / Latest** sort. Source chips under the tabs show or hide each site's tiles (in the order Sports, Movies, Music, Software, Stocks, Trending Topics, Slickdeals, Single Man's Diet, which is also the menu order). The grid draws once everything has loaded, shows 60 tiles at a time, and loads more as you scroll. Switching tab or sort jumps back to the top, and a **Top** button appears after you scroll down. **Mixing.** The sources take turns so the page is not one source after another. On **Popular**, each source keeps its own ranking order, but the grid shows one tile from each source in turn (a different random source order each round: one sport, one trending topic, one music tile, and so on, then the second tile of each). On **Latest**, the grid stays in date order **between 4-hour blocks** (local time: 0 to 4, 4 to 8, and so on, never crossing midnight), and inside each block the sources are mixed the same way. The random order is seeded by the clock, so it holds still for 4 hours and then reshuffles on Popular; on Latest a given block always mixes the same way. Day headings (Today, Yesterday...) work as before.
+The page has two tabs, **Live Stream** and **Favorites**, and a **Popular / Latest** sort. Source chips under the tabs show or hide each site's tiles (in the order Sports, Movies, Music, Software, Books & Audio, Stocks, Trending Topics, Slickdeals, Single Man's Diet, which is also the menu order). The grid draws once everything has loaded, shows 60 tiles at a time, and loads more as you scroll. Switching tab or sort jumps back to the top, and a **Top** button appears after you scroll down. **Mixing.** The sources take turns so the page is not one source after another. On **Popular**, each source keeps its own ranking order, but the grid shows one tile from each source in turn (a different random source order each round: one sport, one trending topic, one music tile, and so on, then the second tile of each). On **Latest**, the grid stays in date order **between 4-hour blocks** (local time: 0 to 4, 4 to 8, and so on, never crossing midnight), and inside each block the sources are mixed the same way. The random order is seeded by the clock, so it holds still for 4 hours and then reshuffles on Popular; on Latest a given block always mixes the same way. Day headings (Today, Yesterday...) work as before.
 
 Each tile type has its own rules:
 
@@ -18,6 +18,7 @@ Each tile type has its own rules:
 | **Movies** | `Movies` | The Movies site's overall board for the last 3 months. A movie is ranked if it has a box office of $2M or more (or $1M or more with a Rotten Tomatoes or IMDb score), or both a Rotten Tomatoes score and an IMDb rating, and the tile date is the release date. |
 | **Music** | `Music` | The Music site's all-sources list. Each link button (Spotify, Apple, Video, Billboard) shows that service's favicon. |
 | **Software** | `Software` | Top GitHub (stars), Steam (most played) and App Store (Apple ranking) lists. The Open button on each tile shows that store's favicon. |
+| **Books & Audio** | `BookAudio` | Apple's Top Paid Books, Top Audiobooks and Top Podcasts charts, shown as Books, Audio Books and Podcasts tiles. A tile appears for an item published (or, for podcasts, first heard) in the last 30 days that is on the chart. Each tile has four link buttons in two lines of two (Amazon and Google Books, then Apple Books and Goodreads for books; Audible and Amazon, then Apple Books and Spotify for audio books; Apple Podcasts and Spotify, then YouTube and Amazon Music for podcasts). On phones the buttons use short names so both lines fit. |
 | **Stocks** | `Stocks` | The Stocks site's overall board (its All tab): stocks that are on at least 2 of its 4 rankings (Gainers, Losers, Most Active, Buzz), in that board's order. Losers appear on the tile with a red negative change; the Chg box shows the stock's Gainers or Losers rank. The tile time is when the stock started trending (the "35m ago" on the tile). The board has no time window of its own: it is the latest snapshot, refreshed every 15 minutes on business days. |
 | **Trending Topics** | `TrendingTopics` | Social media: top 20. Reddit: top 25. Google: everything added in the past hour (up to 25) plus the top 20 overall, each by rank. Google and Reddit tiles show the site's favicon in a boxed button; Social Media tiles show a row of five favicon-only search links (Facebook, X, Threads, Bluesky, Mastodon) for the topic. |
 | **Slickdeals** | `SlickDealsTracker` | Every deal from the past 2 hours plus the top 20 overall by rating. Expired deals show an "Expired" badge, and the rating comes from `expired.xml` when it has one. Each tile ends with a centered, boxed "View deal" button with the Slickdeals favicon. |
@@ -45,13 +46,13 @@ The trending, deals and diet feeds ignore the date filter on purpose. They alway
 ## Mobile
 
 - On screens 700px wide or less, the banner becomes a slim slanted bar with a small menu button, and the controls and fonts are smaller.
-- On touch phones, each site opens in the frame at its own mobile scale. A viewport tag inside a frame is ignored, so Trendslope sets the scale itself: Movies, Music, Software and Stocks 0.8, Trending Topics 0.75, Slickdeals 0.6, Sports 0.85, Single Man's Diet 1.0. Desktop and tablet are not scaled.
+- On touch phones, each site opens in the frame at its own mobile scale. A viewport tag inside a frame is ignored, so Trendslope sets the scale itself: Movies, Music, Software, Books & Audio and Stocks 0.8, Trending Topics 0.75, Slickdeals 0.6, Sports 0.85, Single Man's Diet 1.0. Desktop and tablet are not scaled.
 
 ## Files
 
 ```
 index.html      the whole app (markup, logic, banner, menu, viewer)
-css/            per-source tile styles: deals, diet, fonts, movies, music, software, sports, stocks, trends
+css/            per-source tile styles: books, deals, diet, fonts, movies, music, software, sports, stocks, trends
 diet-shared.js  copy of the Single Man's Diet planner code, used to build the meal tiles
 picks-store.js  copy of the Sports Dashboard picks and scores code
 runner.gif      banner image
