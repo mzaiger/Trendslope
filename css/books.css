@@ -108,12 +108,6 @@ main{ max-width:1700px; margin:0 auto; padding:0 24px 60px; }
 .links{ display:flex; flex-direction:column; gap:6px; margin-top:auto; width:100%; }
 .link-line{ display:flex; gap:6px; width:100%; }
 .links .open-link{ flex:1 1 0; min-width:0; height:34px; margin-top:0; padding:0 6px; font-size:12px; gap:5px; }
-.lbl{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; } .ls{ display:none; }
+.lbl{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .links .open-link>span:last-child{ flex:none; }
 .meta{ margin-top:10px; }
-@media (max-width:700px){
- .links{ gap:4px; } .link-line{ gap:4px; }
- .links .open-link{ height:30px; padding:0 3px; font-size:10.5px; gap:3px; }
- .links .open-ico{ width:14px; height:14px; border-radius:3px; }
- .lf{ display:none; } .ls{ display:inline; }
-}
