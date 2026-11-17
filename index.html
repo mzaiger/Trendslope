@@ -108,8 +108,8 @@ body.site-mode #back{display:flex}
  .mono{font-size:10.2px}
  .btn{font-size:10.2px;padding:5px 9px}
  .srcs{gap:5px}
- .chip2{font-size:10px;padding:3.4px 9px;letter-spacing:.06em;flex:1 1 auto;text-align:center}
- .srcbr{display:block;flex-basis:100%;height:0}   /* phones: the chips sit on two even lines */
+ .chip2{font-size:10px;padding:3.4px 9px;letter-spacing:.06em;flex:0 0 auto;text-align:center}
+ .srcbr{display:none}   /* phones: chips wrap naturally onto the next line, no forced break */
 }
 .loading{grid-column:1/-1;text-align:center;padding:90px 0 120px;font:600 18px Oswald,sans-serif;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);animation:ldpulse 1.2s ease-in-out infinite}
 @keyframes ldpulse{50%{opacity:.4}}
@@ -561,7 +561,7 @@ function render(){if(!READY||BOOT)return;LSC.clear();setTimeout(()=>LSC.clear(),
 function ui(){const btn=(a,k,v,n)=>`<button class="tab ${S[k]==v?'on':''}" data-${a}="${v}">${n}</button>`;
  document.getElementById('tabs').innerHTML=[['live','Live stream'],['fav','Favorites']].map(([v,n])=>btn('tab','tab',v,n)).join('');
  document.getElementById('sorts').innerHTML=SORTS.map(([v,n])=>btn('sort','sort',v,n)).join('');
- document.getElementById('srcs').innerHTML=['sports','movies','music','software','stocks','books','trends','deals','diet'].map((k,n)=>(n==5?'<span class="srcbr"></span>':'')+`<button class="chip2 ${S.hide.includes(k)?'':'on'}" data-hide="${k}"${S.hide.includes(k)?'':` style="background:${COLORS[k]}"`}>${({deals:'Deals',diet:'Diet'})[k]||NAMES[k]}</button>`).join('');}
+ document.getElementById('srcs').innerHTML=['sports','movies','music','software','stocks','books','trends','deals','diet'].map((k,n)=>`<button class="chip2 ${S.hide.includes(k)?'':'on'}" data-hide="${k}"${S.hide.includes(k)?'':` style="background:${COLORS[k]}"`}>${({deals:'Deals',diet:'Diet'})[k]||NAMES[k]}</button>`).join('');}
 document.addEventListener('click',e=>{const t=e.target,d=t.dataset;if(!d)return;let ch=0,pre=null;
  if(d.tab){S.tab=d.tab;sc('ts_tab',S.tab);ch=1;if(S.tab=='fav'&&!BOOT)pre=favMovies}
  if(d.sort){S.sort=d.sort;sc('ts_sort2',S.sort);ch=1}
