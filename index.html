@@ -162,7 +162,7 @@ const DAY=864e5; let now=Date.now();
 const gc=(k,f)=>{const m=document.cookie.match('(?:^|; )'+k+'=([^;]*)');try{return m?JSON.parse(decodeURIComponent(m[1])):f}catch{return f}};
 const sc=(k,v)=>{document.cookie=`${k}=${encodeURIComponent(JSON.stringify(v))};max-age=31536000;path=/;SameSite=Lax`};
 const hs=s=>{let h=2166136261;for(const c of String(s)){h^=c.charCodeAt(0);h=Math.imul(h,16777619)}return(h>>>0)/4294967296};
-const J=async u=>{try{const r=await fetch(u+'?v='+Math.floor(now/3e5));return r.ok?await r.json():null}catch{return null}};
+const J=async u=>{try{const r=await fetch(u+'?v='+Math.floor(now/9e5));return r.ok?await r.json():null}catch{return null}};
 const pick=o=>({title:o.title||o.name||o.topic||o.query||o.meal||o.item||'',img:o.image||o.img||o.poster||o.thumb||o.logo||'',url:o.url||o.link||'',desc:o.desc||o.description||o.summary||''});
 const arr=(o,d=0)=>{if(Array.isArray(o)&&o.length>2&&o[0]&&typeof o[0]=='object'&&pick(o[0]).title)return o;if(o&&typeof o=='object'&&d<4)for(const v of Object.values(o)){const r=arr(v,d+1);if(r)return r}};
 const lim=(a,n)=>a.slice(0,n);
@@ -224,8 +224,8 @@ async function stocks(){const d=await J(RAW(SITE.stocks)+'data/board.json');if(!
  const R=[0,1,2,3].map(rk),board=rows.filter(x=>(x.sc[4]||0)>0).sort((a,b)=>b.sc[4]-a.sc[4]||a.sym.localeCompare(b.sym));
  add(board.map((x,k)=>({id:'st'+x.sym,src:'stocks',raw:{...x.st,sym:x.sym,rks:R.map(m=>m.get(x.sym)||0)},rank:k+1,title:(x.sym+' '+(x.st.n||'')).trim(),ts:Date.parse(x.st.since)})).filter(x=>!isNaN(x.ts)).slice(0,20))}   // only the top 20 of the Stocks All board
 const hid=s=>{let h=5381;for(let i=0;i<s.length;i++)h=(h*33^s.charCodeAt(i))>>>0;return h.toString(36)};
-async function deals(){try{const seenD=new Set();const r=await fetch(RAW(SITE.deals)+'deals.xml?v='+Math.floor(now/3e5));const x=new DOMParser().parseFromString(await r.text(),'text/xml');
- const EX=new Map();try{const xr=new DOMParser().parseFromString(await(await fetch(RAW(SITE.deals)+'expired.xml?v='+Math.floor(now/3e5))).text(),'text/xml');xr.querySelectorAll('expiration').forEach(e=>{const t=(e.querySelector('title')?.textContent||'').trim(),rt=parseInt(e.querySelector('rating')?.textContent,10);if(t)EX.set(t,{expired:(e.querySelector('expired')?.textContent||'').trim().toLowerCase()==='true',rating:Number.isFinite(rt)?rt:null})})}catch{}   // expired.xml: which deals are expired + a fresher rating
+async function deals(){try{const seenD=new Set();const r=await fetch(RAW(SITE.deals)+'deals.xml?v='+Math.floor(now/9e5));const x=new DOMParser().parseFromString(await r.text(),'text/xml');
+ const EX=new Map();try{const xr=new DOMParser().parseFromString(await(await fetch(RAW(SITE.deals)+'expired.xml?v='+Math.floor(now/9e5))).text(),'text/xml');xr.querySelectorAll('expiration').forEach(e=>{const t=(e.querySelector('title')?.textContent||'').trim(),rt=parseInt(e.querySelector('rating')?.textContent,10);if(t)EX.set(t,{expired:(e.querySelector('expired')?.textContent||'').trim().toLowerCase()==='true',rating:Number.isFinite(rt)?rt:null})})}catch{}   // expired.xml: which deals are expired + a fresher rating
  const L=[...x.querySelectorAll('deal')].map(e=>{const g=t=>(e.querySelector(t)?.textContent||'').trim(),p=Date.parse(g('pubDateIso'));return{id:'dl'+hid(g('link')),src:'deals',title:g('title'),raw:{title:g('title'),link:g('link'),thumbnail:g('thumbnail'),rating:(EX.get(g('title'))?.rating??(+g('rating')||0)),expired:EX.get(g('title'))?.expired===true,description:g('description'),pubDateIso:g('pubDateIso')},ts:p}}).filter(i=>i.raw.link&&!isNaN(i.ts)&&!seenD.has(i.id)&&seenD.add(i.id));
  [...L].sort((a,b)=>b.raw.rating-a.raw.rating||b.ts-a.ts).forEach((i,k)=>{i.rank=k+1});add(L)}catch{}}
 async function sports(){const SP={nfl:'nfl',nhl:'nhl',mlb:'mlb',nba:'nba',ncaaf:'cfb',ncaamb:'ncaamb'};for(const l of Object.keys(SP)){const d=await J(RAW(SITE.sports)+`data/${l}_dashboard.json`);if(!d)continue;const out=[],disp=new Set((l=='nfl'||l=='ncaaf'?PS.selectDisplayWeeks:PS.selectDisplayDays)(d.weeks||[],d.current_week).map(x=>x.week));
@@ -626,7 +626,7 @@ const kick=()=>{slope()};
 requestAnimationFrame(()=>requestAnimationFrame(kick));[150,500,1200,2500,5000].forEach(ms=>setTimeout(kick,ms));
 addEventListener('load',kick);addEventListener('pageshow',kick);document.addEventListener('visibilitychange',()=>{if(!document.hidden)kick()});
 document.fonts&&document.fonts.ready.then(()=>{slope();kick()});[300,1200,3000].forEach(ms=>setTimeout(slope,ms));
-addEventListener('storage',render);setInterval(render,60000);
+addEventListener('storage',render);setInterval(render,9e5);
 showLoading();sheets();const bootDone=()=>{if(!BOOT)return;BOOT=false;render();kick()};
 Promise.allSettled([movies,music,software,booksAudio,stocks,deals,sports,trends,diet,scores].map(f=>{try{return Promise.resolve(f())}catch(e){return Promise.resolve()}})).then(()=>{bootDone();SETTLED=true;ORD={};render()});setTimeout(bootDone,8000);   // first draw when everything has arrived (or after 8s)
 </script></body></html>
