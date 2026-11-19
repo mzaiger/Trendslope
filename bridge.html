@@ -1,0 +1,29 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Trendslope storage bridge</title>
+<!-- Lives on marcitech.is-a.dev (old Trendslope repo, keep it there permanently).
+     Lets https://www.trendslope.com read/write the favorites keys in marcitech.is-a.dev's localStorage
+     (same partition as the child sites opened inside Trendslope's viewer). -->
+<script>
+(()=>{
+const ORIGINS=['https://www.trendslope.com','https://trendslope.com'];
+const KEYS=['movies_favs','music_favs','stocks_favs','software_favs2','ba_favs','trending_favorites','slickdeals_favorites',
+ 'singleManSavedWeeks','singleManCurrentWeek','singleManFormData','singleManPickRequest','singleManPickResult'];
+const ok=k=>typeof k==='string'&&(KEYS.includes(k)||k.startsWith('fb_'));
+let peer=null;
+const all=()=>{const o={};try{for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(ok(k))o[k]=localStorage.getItem(k)}}catch{}return o};
+const put=(k,v)=>{if(!ok(k)||(v!=null&&typeof v!=='string'))return false;try{v==null?localStorage.removeItem(k):localStorage.setItem(k,v);return true}catch{return false}};
+addEventListener('message',e=>{
+ if(!ORIGINS.includes(e.origin))return;
+ const m=e.data;if(!m||m.ts!==1||typeof m.id!=='number')return;
+ peer=e.origin;let r={ts:1,id:m.id,re:true,ok:true};
+ if(m.op==='get')r.data=all();
+ else if(m.op==='set')r.ok=put(m.key,m.value);
+ else if(m.op==='setMany'&&m.items&&typeof m.items==='object'){for(const[k,v]of Object.entries(m.items))if(!put(k,v))r.ok=false}
+ else r.ok=false;
+ e.source.postMessage(r,e.origin);
+});
+// favorites changed by a child site open in the viewer -> tell Trendslope
+addEventListener('storage',e=>{if(peer&&parent!==window&&(e.key===null||ok(e.key)))parent.postMessage({ts:1,op:'changed',key:e.key,value:e.newValue},peer)});
+})();
+</script>
