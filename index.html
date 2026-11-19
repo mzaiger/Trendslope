@@ -143,6 +143,7 @@ body.site-mode #back{display:flex}
  <div class="grid" id="grid"></div>
  <div id="more" style="min-height:1px;text-align:center;padding:10px 0 30px"><button class="btn" id="moreBtn" style="display:none"></button></div>
 </main>
+<script src="transfer.js"></script>
 <script src="picks-store.js"></script>
 <script src="diet-shared.js"></script>
 <script>
@@ -173,7 +174,7 @@ let ITEMS=[],GSET=new Set(),SHOWN=60,LASTTOTAL=0,MROWS=[],MBOARD=[];const CUR=ne
 const dts=d=>{if(!d)return NaN;const m=String(d).match(/^(\d{4})-(\d\d)-(\d\d)$/);return m?new Date(+m[1],m[2]-1,+m[3],12).getTime():Date.parse(d)};
 // ===== favorites: same localStorage keys/formats as each site, so they show on the other pages =====
 const LSC=new Map();   // parsed storage values, kept only while one render runs (isFav is asked for every item, which re-parsed the same JSON thousands of times)
-const LS=(k,f)=>{if(LSC.has(k))return LSC.get(k);try{const v=localStorage.getItem(k);if(v==null)return f;const r=JSON.parse(v);LSC.set(k,r);return r}catch{return f}},LW=(k,v)=>{LSC.clear();try{localStorage.setItem(k,JSON.stringify(v))}catch{}};
+const LS=(k,f)=>{if(LSC.has(k))return LSC.get(k);try{const v=TSB.get(k);if(v==null)return f;const r=JSON.parse(v);LSC.set(k,r);return r}catch{return f}},LW=(k,v)=>{LSC.clear();try{TSB.setRaw(k,JSON.stringify(v)).catch(()=>{})}catch{}};
 const mut=(k,fb,fn)=>{const o=LS(k,fb);fn(o);LW(k,o)};
 const kM=i=>i.fk||('all:'+i.raw.id),kS=i=>i.fk||(i.f+':'+i.raw.id),kT=i=>i.sk+'|'+i.raw.id;
 const FAV={
@@ -258,8 +259,8 @@ function dietItems(lo,hi,todayOnly){const Ps=dietPlans();if(!Ps.length)return[];
    all.push({id:`di${P.tab}-${di}-${sl}-${ymd}`,src:'diet',meal:m,wk:P.tab,day:di,slot:sl,desired:(d.pools&&d.pools[sl])||DS.getMealSource(m),title:DS.getMealName(m),ts:t.getTime(),today:day.getTime()==t0.getTime(),dn,dt:`${day.getMonth()+1}/${day.getDate()}/${day.getFullYear()}`})}})}
  return all}
 function dietSelect(wk,di,slot){const P=dietPlan(wk);if(!P)return;const d=P.week.days[di];if(!d||!d.meals[slot])return;
- try{localStorage.setItem('singleManPickRequest',JSON.stringify({tab:P.tab,dayIndex:di,slot,dayName:d.dayName,source:(d.pools&&d.pools[slot])||DS.getMealSource(d.meals[slot])}));localStorage.removeItem('singleManPickResult')}catch{alert("This browser won't let the page save the pick.");return}
- openSite('diet','products.html?pick=1')}
+ const req=JSON.stringify({tab:P.tab,dayIndex:di,slot,dayName:d.dayName,source:(d.pools&&d.pools[slot])||DS.getMealSource(d.meals[slot])});
+ Promise.all([TSB.setRaw('singleManPickRequest',req),TSB.setRaw('singleManPickResult',null)]).then(()=>openSite('diet','products.html?pick=1')).catch(()=>alert("This browser won't let the page save the pick."))}
 function dietEdit(wk,fn){const P=dietPlan(wk);if(P&&fn(P)){dietSave(P);render()}}
 // ===== tile renderers: same markup as each site's own page =====
 const ESC={'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'},esc=x=>String(x??'').replace(/[&<>"']/g,c=>ESC[c]);
@@ -629,5 +630,5 @@ addEventListener('load',kick);addEventListener('pageshow',kick);document.addEven
 document.fonts&&document.fonts.ready.then(()=>{slope();kick()});[300,1200,3000].forEach(ms=>setTimeout(slope,ms));
 addEventListener('storage',render);setInterval(render,9e5);
 showLoading();sheets();const bootDone=()=>{if(!BOOT)return;BOOT=false;render();kick()};
-Promise.allSettled([movies,music,software,booksAudio,stocks,deals,sports,trends,diet,scores].map(f=>{try{return Promise.resolve(f())}catch(e){return Promise.resolve()}})).then(()=>{bootDone();SETTLED=true;ORD={};render()});setTimeout(bootDone,8000);   // first draw when everything has arrived (or after 8s)
+Promise.allSettled([()=>TSB.ready,movies,music,software,booksAudio,stocks,deals,sports,trends,diet,scores].map(f=>{try{return Promise.resolve(f())}catch(e){return Promise.resolve()}})).then(()=>{bootDone();SETTLED=true;ORD={};render()});setTimeout(bootDone,8000);   // first draw when everything has arrived (or after 8s)
 </script></body></html>
