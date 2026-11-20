@@ -71,7 +71,7 @@ body{position:relative}
  #menu a{border:0;background:none;border-radius:10px;padding:12px 12px;font-size:13px;-webkit-backdrop-filter:none;backdrop-filter:none}
  #menu a:hover{background:rgba(255,255,255,.14);color:#fff}}
 #siteview{display:none}
-#siteview iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:#fff}
+#siteview iframe{position:fixed;inset:0;width:100vw;height:100vh;height:100dvh;border:0;background:transparent}
 #back{display:none;position:fixed;left:1rem;bottom:calc(1rem + env(safe-area-inset-bottom,0px));z-index:400;align-items:center;gap:.4rem;font:600 .78rem system-ui,-apple-system,sans-serif;color:#fff;background:linear-gradient(100deg,#2a0a4a,#6a11cb);border:1px solid #8e2de2;border-radius:999px;padding:.4rem .8rem;cursor:pointer;box-shadow:0 10px 24px -12px rgba(0,0,0,.6)}
 #back:hover{border-color:#ff2fa0;color:#ffd0ec}
 #totop{display:flex;position:fixed;right:1rem;bottom:calc(1rem + env(safe-area-inset-bottom,0px));z-index:400;align-items:center;gap:.4rem;font:600 .78rem system-ui,-apple-system,sans-serif;color:#fff;background:linear-gradient(100deg,#2a0a4a,#6a11cb);border:1px solid #8e2de2;border-radius:999px;padding:.45rem .85rem;cursor:pointer;box-shadow:0 10px 24px -12px rgba(0,0,0,.6);opacity:0;pointer-events:none;transform:translateY(8px);transition:opacity .2s,transform .2s}
@@ -88,11 +88,11 @@ body.site-mode .disco{flex:none}
 .disco .hero img{width:84px;max-width:84px;border-width:2px;box-shadow:0 0 14px #ff2fa0}
 .disco h1{font-size:clamp(24px,6vw,40px);text-shadow:2px 2px 0 #ff2fa0,3px 3px 0 #1B63E0}
 .disco .tag{display:none}
-body.site-mode #siteview{display:block;position:fixed;left:0;right:0;top:0;bottom:0;overflow:hidden}   /* the site fills the whole screen; the banner sits on top and scrolls away */
-body.site-mode.xo #siteview{top:var(--vt,0px)}   /* cross-origin (trendslope.com): the page can't pad the frame or follow its scroll, so the frame starts under a slim banner instead */
+body.site-mode #siteview{display:block;position:fixed;inset:0;overflow:hidden;z-index:1}   /* the site fills the whole screen; the banner sits on top and scrolls away */
+body.site-mode.xo #siteview{top:0}   /* cross-origin pages fill the screen behind Safari's browser bars */
 body.site-mode .disco{-webkit-clip-path:none;clip-path:none;padding:0;height:10px;overflow:hidden;box-shadow:0 1px 6px rgba(106,17,203,.4)}   /* same glowing gradient, just a thin strip: no logo, ticker or menu */
 body.site-mode .disco .hero,body.site-mode .slope,body.site-mode #burger,body.site-mode #menu{display:none!important}
-body.site-mode #siteview{left:env(safe-area-inset-left,0px);right:env(safe-area-inset-right,0px)}
+body.site-mode #siteview{left:0;right:0}
 body.site-mode #back{display:flex}
 @media(max-width:700px){
  /* phones: a slim full-width bar, still slanted: tall on the left, short on the right (where the menu button sits) */
@@ -583,7 +583,7 @@ document.getElementById('moreBtn').onclick=more;
 // ===== menu + in-page viewer: the other sites open in an iframe under the Trendslope header =====
 let MAINY=0;const sv=document.getElementById('siteview');
 // each site's own mobile scale (its viewport tag's initial-scale), vs this page's 1.0
-const SITEBG={movies:'#FFFFFF',music:'#FFFFFF',software:'#FFFFFF',books:'#FFFFFF',stocks:'#FFFFFF',trends:'#FFFFFF',deals:'#FFFFFF',sports:'#0d1322',diet:'#EEF2F0'},paint=c=>{const color=c||'#2a0a4a';document.documentElement.style.background=document.body.style.background=color;const meta=document.querySelector('meta[name="theme-color"]');if(meta)meta.content=color};   // each site's own page color fills the strip under the slope, so the page drops in below it seamlessly
+const SITEBG={movies:'#FFFFFF',music:'#FFFFFF',software:'#FFFFFF',books:'#FFFFFF',stocks:'#FFFFFF',trends:'#FFFFFF',deals:'#FFFFFF',sports:'#0d1322',diet:'#EEF2F0'},paint=c=>{document.documentElement.style.background=document.body.style.background=c||'';const meta=document.querySelector('meta[name="theme-color"]');if(meta)meta.content=c||'#2a0a4a'};   // each site's own page color fills the strip under the slope, so the page drops in below it seamlessly
 // banner scroll-away: plain top / margin offsets (no transforms or custom properties, which iOS Safari mishandles together with clip-path)
 const shiftHdr=px=>{const hd=document.querySelector('.disco'),b=document.getElementById('burger'),m=document.getElementById('menu'),t=px?-px+'px':'';
  hd.style.top=t;b&&(b.style.marginTop=t);m&&(m.style.marginTop=t)};
