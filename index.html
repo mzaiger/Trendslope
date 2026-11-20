@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Trendslope</title>
 <link rel="icon" type="image/gif" href="favicon.gif">
 <link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700;900&family=Permanent+Marker&display=swap" rel="stylesheet">
@@ -22,7 +22,7 @@ h1{font-family:Oswald,sans-serif;font-weight:700;text-transform:uppercase;font-s
 .tag{font-family:'IBM Plex Mono',monospace;font-size:13px;letter-spacing:.18em;text-transform:uppercase;margin:10px 0 0;color:#00ffd0}
 .slope{position:absolute;left:0;bottom:6px;height:30px;line-height:30px;transform-origin:0 100%;white-space:nowrap;overflow:hidden;z-index:2;pointer-events:none}
 .slope .tr{display:inline-block;font-family:Oswald,sans-serif;font-weight:600;letter-spacing:.22em;font-size:14px;text-shadow:0 1px 6px rgba(0,0,0,.4)}   /* scrolled by script (see marquee) */
-main{max-width:1700px;margin:0 auto;padding:0 24px 60px}
+main{max-width:1700px;margin:0 auto;padding:0 max(24px,env(safe-area-inset-right,0px)) calc(60px + env(safe-area-inset-bottom,0px)) max(24px,env(safe-area-inset-left,0px))}   /* viewport-fit=cover: the page runs under Safari's bars, so keep content clear of the notch / home indicator */
 .controls{display:flex;flex-wrap:wrap;gap:10px 16px;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:10;padding:10px 0;background:linear-gradient(var(--bg) 78%,transparent)}
 .tabs{display:flex;flex-wrap:wrap;gap:4px;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:3px}
 .tab{font-family:Oswald;font-weight:600;letter-spacing:.04em;text-transform:uppercase;font-size:13px;color:var(--dim);background:none;border:0;border-radius:999px;padding:7px 15px}
@@ -92,6 +92,7 @@ body.site-mode #siteview{display:block;position:fixed;left:0;right:0;top:0;botto
 body.site-mode.xo #siteview{top:var(--vt,0px)}   /* cross-origin (trendslope.com): the page can't pad the frame or follow its scroll, so the frame starts under a slim banner instead */
 body.site-mode .disco{-webkit-clip-path:none;clip-path:none;padding:0;height:10px;overflow:hidden;box-shadow:0 1px 6px rgba(106,17,203,.4)}   /* same glowing gradient, just a thin strip: no logo, ticker or menu */
 body.site-mode .disco .hero,body.site-mode .slope,body.site-mode #burger,body.site-mode #menu{display:none!important}
+body.site-mode #siteview{left:env(safe-area-inset-left,0px);right:env(safe-area-inset-right,0px)}
 body.site-mode #back{display:flex}
 @media(max-width:700px){
  /* phones: a slim full-width bar, still slanted: tall on the left, short on the right (where the menu button sits) */
@@ -103,7 +104,7 @@ body.site-mode #back{display:flex}
  .slope{height:22px;line-height:22px;bottom:5px}.slope .tr{font-size:12px}
  #burger{top:2px;right:8px;width:32px;height:32px;font-size:17px;border-radius:50%}
  #menu{top:40px;right:8px}
- main{padding-left:14px;padding-right:14px}
+ main{padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px))}
  .controls{gap:6px 8px;padding:8px 0;justify-content:flex-start;flex-wrap:nowrap}
  .controls .tabs{flex-wrap:nowrap;flex:0 0 auto;gap:2px;padding:2px}
  .controls .mono{margin-left:auto;white-space:nowrap}
