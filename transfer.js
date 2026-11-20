@@ -116,11 +116,14 @@ async function receive(){
  await T.ready;
  if(!T.bridgeOk){toast('Could not reach the storage bridge. Try again in a moment.');return}
  const items={};let count=0;
+ // sports picks were cookies on the old site; on the new one they live in the shared store (as fb_pick_<cookie name>), so the Sports frame and Trendslope both see them
+ for(const[n,v]of Object.entries(p.ck||{})){if(!/^pick_[\w.-]*$/.test(n)||typeof v!=='string')continue;const key='fb_pick_'+n;if(T.get(key)!=null)continue;
+  try{items[key]=JSON.stringify({x:Date.parse(nextAug1()),v:decodeURIComponent(v)});count++}catch{}}
  for(const[k,v]of Object.entries(p.ls||{})){if(!okKey(k)||typeof v!=='string')continue;const mv=mergeVal(T.get(k),v);if(mv!==T.get(k)){items[k]=mv;count++}}
  const ack=Object.keys(items).length?await T.setMany(items):{ok:true};
- for(const[n,v]of Object.entries(p.ck||{})){if(!/^(ts_|pick_)[\w.-]*$/.test(n)||typeof v!=='string')continue;
+ for(const[n,v]of Object.entries(p.ck||{})){if(!/^ts_[\w.-]*$/.test(n)||typeof v!=='string')continue;
   if(document.cookie.split(';').some(c=>c.trim().startsWith(n+'=')))continue;
-  document.cookie=n+'='+v+(n.startsWith('pick_')?'; expires='+nextAug1():'; max-age=31536000')+'; path=/; SameSite=Lax';count++}
+  document.cookie=n+'='+v+'; max-age=31536000'+'; path=/; SameSite=Lax';count++}
  if(ack===null){toast('The transfer did not finish saving. Try again.');return}
  try{sessionStorage.setItem('ts_imported',String(count))}catch{}
  location.reload();
