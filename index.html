@@ -90,8 +90,8 @@ body.site-mode .disco{flex:none}
 .disco .tag{display:none}
 body.site-mode #siteview{display:block;position:fixed;left:0;right:0;top:0;bottom:0;overflow:hidden}   /* the site fills the whole screen; the banner sits on top and scrolls away */
 body.site-mode.xo #siteview{top:var(--vt,0px)}   /* cross-origin (trendslope.com): the page can't pad the frame or follow its scroll, so the frame starts under a slim banner instead */
-body.site-mode.xo .disco{-webkit-clip-path:none;clip-path:none;padding:0;height:10px;overflow:hidden;box-shadow:0 1px 6px rgba(106,17,203,.4)}   /* same glowing gradient, just a thin strip: no logo, ticker or menu */
-body.site-mode.xo .disco .hero,body.site-mode.xo .slope,body.site-mode.xo #burger,body.site-mode.xo #menu{display:none!important}
+body.site-mode .disco{-webkit-clip-path:none;clip-path:none;padding:0;height:10px;overflow:hidden;box-shadow:0 1px 6px rgba(106,17,203,.4)}   /* same glowing gradient, just a thin strip: no logo, ticker or menu */
+body.site-mode .disco .hero,body.site-mode .slope,body.site-mode #burger,body.site-mode #menu{display:none!important}
 body.site-mode #back{display:flex}
 @media(max-width:700px){
  /* phones: a slim full-width bar, still slanted: tall on the left, short on the right (where the menu button sits) */
@@ -601,7 +601,7 @@ function showSite(key,sub){const url=SITEURL(key,sub);if(!document.body.classLis
   cancelAnimationFrame(FOLLOW);
   f.addEventListener('load',()=>{try{const w=f.contentWindow,hd=document.querySelector('.disco'),root=w.document.documentElement;
    const onBody=['movies','music','software','books','stocks','trends','deals'].includes(key),tgt=onBody?w.document.body:root,base=onBody?(parseFloat(w.getComputedStyle(tgt).paddingTop)||0):0;   // those sites paint their slight blue glow on <body>, so the space under the banner goes on <body> too (on <html> it would show plain white)
-   const pad=()=>{const extra=document.body.dataset.site=='diet'?(slope.rise||0):0;tgt.style.paddingTop=(base+(hd.offsetHeight-extra)/sk)+'px'};   // the site starts just under the banner...
+   const pad=()=>{const extra=0;tgt.style.paddingTop=(base+(hd.offsetHeight-extra)/sk)+'px'};   // the site starts just under the banner...
    pad();addEventListener('resize',pad);
    cancelAnimationFrame(FOLLOW);
    const tick=()=>{try{const y=Math.max(0,w.scrollY||root.scrollTop||0);shiftHdr(Math.min(y*sk,hd.offsetHeight))}catch{}FOLLOW=requestAnimationFrame(tick)};tick()}catch{}});   // ...and the banner moves up exactly as far as the site scrolls (same origin; read every frame so it stays smooth even when iOS delays scroll events)
