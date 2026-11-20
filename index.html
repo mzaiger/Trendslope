@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#2a0a4a">
 <title>Trendslope</title>
 <link rel="icon" type="image/gif" href="favicon.gif">
 <link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700;900&family=Permanent+Marker&display=swap" rel="stylesheet">
@@ -9,7 +9,7 @@
 <style>
 :root{--rise:clamp(18px,4vw,32px);--bg:#fff;--panel:#F2F7FD;--line:#D9E5F2;--text:#10233F;--dim:#64798E;--blue:#1B63E0;--radius:10px}
 *{box-sizing:border-box}
-html,body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui,sans-serif}
+html,body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui,sans-serif;min-height:100%}
 button{font-family:inherit;cursor:pointer}
 /* boogie header */
 .disco{position:relative;color:#fff;background:linear-gradient(120deg,#2a0a4a,#6a11cb 35%,#ff2fa0 70%,#ffb347);background-size:300% 300%;animation:shift 12s ease infinite;z-index:5;-webkit-clip-path:polygon(0 0,100% 0,100% calc(100% - var(--rise)),0 100%);clip-path:polygon(0 0,100% 0,100% calc(100% - var(--rise)),0 100%);padding-bottom:calc(var(--rise) + 40px)}
@@ -80,7 +80,7 @@ body{position:relative}
 body.site-mode #totop{display:none}
 #totop svg{width:.95rem;height:.95rem;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 #back svg{width:.95rem;height:.95rem;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
-body.site-mode{height:100vh;height:100dvh;display:flex;flex-direction:column;overflow:hidden}
+body.site-mode{height:100vh;height:100dvh;display:flex;flex-direction:column;overflow:hidden;background:var(--site-bg,#2a0a4a)}
 body.site-mode main{display:none}
 body.site-mode .disco{flex:none}
 .disco{padding-bottom:calc(var(--rise) + 32px)}
@@ -583,7 +583,7 @@ document.getElementById('moreBtn').onclick=more;
 // ===== menu + in-page viewer: the other sites open in an iframe under the Trendslope header =====
 let MAINY=0;const sv=document.getElementById('siteview');
 // each site's own mobile scale (its viewport tag's initial-scale), vs this page's 1.0
-const SITEBG={movies:'#FFFFFF',music:'#FFFFFF',software:'#FFFFFF',books:'#FFFFFF',stocks:'#FFFFFF',trends:'#FFFFFF',deals:'#FFFFFF',sports:'#0d1322',diet:'#EEF2F0'},paint=c=>{document.documentElement.style.background=document.body.style.background=c||''};   // each site's own page color fills the strip under the slope, so the page drops in below it seamlessly
+const SITEBG={movies:'#FFFFFF',music:'#FFFFFF',software:'#FFFFFF',books:'#FFFFFF',stocks:'#FFFFFF',trends:'#FFFFFF',deals:'#FFFFFF',sports:'#0d1322',diet:'#EEF2F0'},paint=c=>{const color=c||'#2a0a4a';document.documentElement.style.background=document.body.style.background=color;const meta=document.querySelector('meta[name="theme-color"]');if(meta)meta.content=color};   // each site's own page color fills the strip under the slope, so the page drops in below it seamlessly
 // banner scroll-away: plain top / margin offsets (no transforms or custom properties, which iOS Safari mishandles together with clip-path)
 const shiftHdr=px=>{const hd=document.querySelector('.disco'),b=document.getElementById('burger'),m=document.getElementById('menu'),t=px?-px+'px':'';
  hd.style.top=t;b&&(b.style.marginTop=t);m&&(m.style.marginTop=t)};
