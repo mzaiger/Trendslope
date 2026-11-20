@@ -89,6 +89,7 @@ body.site-mode .disco{flex:none}
 .disco h1{font-size:clamp(24px,6vw,40px);text-shadow:2px 2px 0 #ff2fa0,3px 3px 0 #1B63E0}
 .disco .tag{display:none}
 body.site-mode #siteview{display:block;position:fixed;left:0;right:0;top:0;bottom:0;overflow:hidden}   /* the site fills the whole screen; the banner sits on top and scrolls away */
+body.site-mode.xo #siteview{top:var(--vt,0px)}   /* cross-origin (trendslope.com): the page can't pad the frame, so the frame starts under the banner instead */
 body.site-mode #back{display:flex}
 @media(max-width:700px){
  /* phones: a slim full-width bar, still slanted: tall on the left, short on the right (where the menu button sits) */
@@ -584,6 +585,7 @@ const SITEBG={movies:'#FFFFFF',music:'#FFFFFF',software:'#FFFFFF',books:'#FFFFFF
 const shiftHdr=px=>{const hd=document.querySelector('.disco'),b=document.getElementById('burger'),m=document.getElementById('menu'),t=px?-px+'px':'';
  hd.style.top=t;b&&(b.style.marginTop=t);m&&(m.style.marginTop=t)};
 let FOLLOW=0;
+const fitView=()=>{const hd=document.querySelector('.disco');document.body.classList.toggle('xo',!!TSB.on);document.documentElement.style.setProperty('--vt',(TSB.on&&document.body.classList.contains('site-mode')?Math.max(0,hd.offsetHeight-(document.body.dataset.site=='diet'?(slope.rise||0):0)):0)+'px')};
 const sportsBg=()=>{try{return getEffectiveTheme()==='light'?'#f5f7fc':'#0d1322'}catch{return '#0d1322'}};   // Sports follows its own dark/light choice (same fb_theme setting, same origin)
 const SITESCALE={movies:.8,music:.8,software:.8,books:.62,stocks:.75,trends:.75,deals:.6,sports:.85,diet:1},PSCALE=1,isMob=()=>matchMedia('(hover:none) and (pointer:coarse) and (max-width:700px)').matches;   // scaling is for phones only, never desktop
 function openSite(key,sub){location.hash='#/'+key+(sub?'/'+sub:'')}
@@ -601,10 +603,10 @@ function showSite(key,sub){const url=SITEURL(key,sub);if(!document.body.classLis
    const tick=()=>{try{const y=Math.max(0,w.scrollY||root.scrollTop||0);shiftHdr(Math.min(y*sk,hd.offsetHeight))}catch{}FOLLOW=requestAnimationFrame(tick)};tick()}catch{}});   // ...and the banner moves up exactly as far as the site scrolls (same origin; read every frame so it stays smooth even when iOS delays scroll events)
   if(key=='sports')f.addEventListener('load',()=>{try{const b=f.contentDocument.body,sync=()=>paint(getComputedStyle(b).getPropertyValue('--bg').trim()||(b.classList.contains('light-theme')?'#f5f7fc':'#0d1322'));sync();new MutationObserver(sync).observe(b,{attributes:true,attributeFilter:['class']})}catch{}});   // follow the theme toggle inside the frame
   sv.replaceChildren(f)}
- document.body.dataset.site=key;paint(key=='sports'?sportsBg():key=='diet'?'':SITEBG[key]);slope.k='';scrollTo(0,0);slope();shiftHdr(0);setTimeout(slope,60)}
+ document.body.dataset.site=key;paint(key=='sports'?sportsBg():key=='diet'?'':SITEBG[key]);slope.k='';scrollTo(0,0);slope();shiftHdr(0);fitView();setTimeout(slope,60);setTimeout(fitView,60);setTimeout(fitView,400)}
 function showMain(){if(!document.body.classList.contains('site-mode'))return;document.body.classList.remove('site-mode');delete document.body.dataset.site;cancelAnimationFrame(FOLLOW);paint('');shiftHdr(0);sv.replaceChildren();slope.k='';slope();render();scrollTo(0,MAINY)}
 function route(){const m=location.hash.match(/^#\/(\w+)(?:\/(.*))?$/);if(m&&SITE[m[1]])showSite(m[1],m[2]||'');else showMain()}
-addEventListener('hashchange',route);
+addEventListener('hashchange',route);addEventListener('resize',fitView);try{new ResizeObserver(fitView).observe(document.querySelector('.disco'))}catch{}
 document.getElementById('back').onclick=()=>{history.replaceState(null,'',location.pathname+location.search);route()};   // one click, whatever the site did inside its frame
 const burger=document.getElementById('burger'),menu=document.getElementById('menu'),closeMenu=()=>{menu.classList.remove('open');burger.setAttribute('aria-expanded','false')};
 burger.onclick=e=>{e.stopPropagation();burger.setAttribute('aria-expanded',menu.classList.toggle('open'))};
