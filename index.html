@@ -91,9 +91,8 @@ body.site-mode .disco{flex:none}
 body.site-mode #siteview{display:block;position:fixed;left:0;right:0;top:0;bottom:0;overflow:hidden}   /* the site fills the whole screen; the banner sits on top and scrolls away */
 body.site-mode.xo #siteview{top:var(--vt,0px)}   /* cross-origin (trendslope.com): the page can't pad the frame or follow its scroll, so the frame starts under a slim banner instead */
 body.site-mode #siteview{left:env(safe-area-inset-left,0px);right:env(safe-area-inset-right,0px)}
-body.site-mode.tall{height:auto;min-height:100dvh;display:block;overflow:visible}   /* a site that has ts-embed.js: the frame is as tall as the site and the PAGE scrolls (Safari's bars collapse, the page runs under them, the slim bar scrolls away) */
-body.site-mode.tall #siteview,body.site-mode.tall.xo #siteview{position:relative;left:0;right:auto;top:0;bottom:auto;margin:calc(-1 * var(--vt,0px)) env(safe-area-inset-right,0px) 0 env(safe-area-inset-left,0px);overflow:hidden}   /* the site starts behind the banner (so the banner's slanted edge shows the site's own colour); the site pads itself so its content begins below it */
-body.site-mode.tall #siteview iframe{position:absolute;left:0;top:0}
+body.site-mode.xo.coop #siteview{top:0}   /* a site with ts-embed.js pads itself, so it can run behind the banner like it did on the old domain */
+body.coop #burger,body.coop #menu{will-change:margin-top}
 body.site-mode #back{display:flex}
 @media(max-width:700px){
  /* phones: a slim full-width bar, still slanted: tall on the left, short on the right (where the menu button sits) */
@@ -589,7 +588,7 @@ const SITEBG={movies:'#FFFFFF',music:'#FFFFFF',software:'#FFFFFF',books:'#FFFFFF
 const shiftHdr=px=>{const hd=document.querySelector('.disco'),b=document.getElementById('burger'),m=document.getElementById('menu'),t=px?-px+'px':'';
  hd.style.top=t;b&&(b.style.marginTop=t);m&&(m.style.marginTop=t)};
 let FOLLOW=0;
-const fitView=()=>{const hd=document.querySelector('.disco');document.body.classList.toggle('xo',!!TSB.on);document.documentElement.style.setProperty('--vt',(document.body.classList.contains('site-mode')&&(TSB.on||document.body.classList.contains('tall'))?hd.offsetHeight:0)+'px');if(typeof sendPad=='function')sendPad()};
+const fitView=()=>{const hd=document.querySelector('.disco');document.body.classList.toggle('xo',!!TSB.on);document.documentElement.style.setProperty('--vt',(document.body.classList.contains('site-mode')&&TSB.on&&!document.body.classList.contains('coop')?hd.offsetHeight:0)+'px');if(typeof sendPad=='function')sendPad()};
 const sportsBg=()=>{try{
  if(TSB.on){let t=TSB.get('fb_theme');if(t!=='light'&&t!=='dark')t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';return t==='light'?'#f5f7fc':'#0d1322'}   // trendslope.com: the frame's theme lives in marcitech storage, read through the bridge
  return getEffectiveTheme()==='light'?'#f5f7fc':'#0d1322'}catch{return '#0d1322'}};   // Sports follows its own dark/light choice (same fb_theme setting, same origin)
@@ -597,36 +596,35 @@ const SITESCALE={movies:.8,music:.8,software:.8,books:.62,stocks:.75,trends:.75,
 function openSite(key,sub){location.hash='#/'+key+(sub?'/'+sub:'')}
 // a fresh iframe each time (its first load replaces the blank page instead of adding browser-history steps)
 function showSite(key,sub){const url=SITEURL(key,sub);if(!document.body.classList.contains('site-mode')){MAINY=scrollY;document.body.classList.add('site-mode')}
- const cur=sv.firstElementChild;if(!cur||cur.dataset.u!==url){document.body.classList.remove('tall');sv.style.height='';const f=document.createElement('iframe');f.dataset.u=url;f.title=NAMES[key];f.src=url;
+ const cur=sv.firstElementChild;if(!cur||cur.dataset.u!==url){document.body.classList.remove('coop');const f=document.createElement('iframe');f.dataset.u=url;f.title=NAMES[key];f.src=url;
   const s=SITESCALE[key],k=s/PSCALE,mobile=isMob();if(mobile&&s&&Math.abs(k-1)>.01)f.style.cssText=`inset:auto;top:0;left:0;width:${100/k}%;height:${100/k}%;transform:scale(${k});transform-origin:0 0`;   // lay the site out at its own width, then scale it to fit
   const sk=(mobile&&s&&Math.abs(k-1)>.01)?k:1;f._sk=sk;
   cancelAnimationFrame(FOLLOW);
-  f.addEventListener('load',()=>{try{if(f._tall)return;const w=f.contentWindow,hd=document.querySelector('.disco'),root=w.document.documentElement;
+  f.addEventListener('load',()=>{try{if(f._coop)return;const w=f.contentWindow,hd=document.querySelector('.disco'),root=w.document.documentElement;
    const onBody=['movies','music','software','books','stocks','trends','deals'].includes(key),tgt=onBody?w.document.body:root,base=onBody?(parseFloat(w.getComputedStyle(tgt).paddingTop)||0):0;   // those sites paint their slight blue glow on <body>, so the space under the banner goes on <body> too (on <html> it would show plain white)
    const pad=()=>{const extra=document.body.dataset.site=='diet'?(slope.rise||0):0;tgt.style.paddingTop=(base+(hd.offsetHeight-extra)/sk)+'px'};   // the site starts just under the banner...
    pad();addEventListener('resize',pad);f._unpad=()=>{removeEventListener('resize',pad);tgt.style.paddingTop=''};
    cancelAnimationFrame(FOLLOW);
    const tick=()=>{try{const y=Math.max(0,w.scrollY||root.scrollTop||0);shiftHdr(Math.min(y*sk,hd.offsetHeight))}catch{}FOLLOW=requestAnimationFrame(tick)};tick()}catch{}});   // ...and the banner moves up exactly as far as the site scrolls (same origin; read every frame so it stays smooth even when iOS delays scroll events)
   if(key=='sports')f.addEventListener('load',()=>{try{const b=f.contentDocument.body,sync=()=>paint(getComputedStyle(b).getPropertyValue('--bg').trim()||(b.classList.contains('light-theme')?'#f5f7fc':'#0d1322'));sync();new MutationObserver(sync).observe(b,{attributes:true,attributeFilter:['class']})}catch{}});   // follow the theme toggle inside the frame
-  sv.replaceChildren(f);if(DBG){dbg('waiting for ts-embed from '+url);setTimeout(()=>{if(!f._tall&&sv.firstElementChild===f)dbg('NO hello after 4s: ts-embed.js is not on this site (check /ts-embed.js loads and the script line is in the page)')},4000)}}
+  sv.replaceChildren(f);if(DBG){dbg('waiting for ts-embed from '+url);setTimeout(()=>{if(!f._coop&&sv.firstElementChild===f)dbg('NO hello after 4s: ts-embed.js is not on this site (check /ts-embed.js loads and the script line is in the page)')},4000)}}
  document.body.dataset.site=key;paint(key=='sports'?sportsBg():key=='diet'?'':SITEBG[key]);slope.k='';scrollTo(0,0);slope();shiftHdr(0);fitView();setTimeout(slope,60);setTimeout(fitView,60);setTimeout(fitView,400)}
-function showMain(){if(!document.body.classList.contains('site-mode'))return;document.body.classList.remove('site-mode','tall');sv.style.height='';delete document.body.dataset.site;cancelAnimationFrame(FOLLOW);paint('');shiftHdr(0);sv.replaceChildren();slope.k='';slope();render();scrollTo(0,MAINY)}
+function showMain(){if(!document.body.classList.contains('site-mode'))return;document.body.classList.remove('site-mode','coop');delete document.body.dataset.site;cancelAnimationFrame(FOLLOW);paint('');shiftHdr(0);sv.replaceChildren();slope.k='';slope();render();scrollTo(0,MAINY)}
 // sites with ts-embed.js announce themselves and report their height; the frame then grows to fit and the page itself scrolls
 // add ?tsdebug=1 to the Trendslope address to see what the frame is sending
 const DBG=/[?&]tsdebug/.test(location.search);let dbgEl;const dbg=t=>{if(!DBG)return;if(!dbgEl){dbgEl=document.createElement('div');dbgEl.style.cssText='position:fixed;left:6px;top:14px;z-index:99999;background:#000c;color:#0f0;font:11px/1.3 monospace;padding:4px 7px;border-radius:6px;max-width:92vw;pointer-events:none';document.body.appendChild(dbgEl)}dbgEl.dataset.t=t;dbgEl.textContent=t+' | '+viewInfo()};
 const viewInfo=()=>{const p=document.createElement('div');p.style.cssText='position:fixed;visibility:hidden;padding-bottom:env(safe-area-inset-bottom,0px)';document.body.appendChild(p);const sb=getComputedStyle(p).paddingBottom;p.remove();const vv=window.visualViewport;return 'inner '+innerWidth+'x'+innerHeight+(vv?' vv '+Math.round(vv.height):'')+' screen '+screen.height+' safeB '+sb+' cover '+(/viewport-fit=cover/.test(document.querySelector('meta[name=viewport]').content)?'yes':'NO')+' scrollY '+Math.round(scrollY)};
 if(DBG){addEventListener('scroll',()=>{if(dbgEl)dbgEl.textContent=dbgEl.dataset.t+' | '+viewInfo()},{passive:true})}
 const ONBODY=['movies','music','software','books','stocks','trends','deals'];
-function sendPad(){const f=sv.firstElementChild;if(!f||!f._tall)return;const hd=document.querySelector('.disco'),key=document.body.dataset.site,extra=key=='diet'?(slope.rise||0):0;
+function sendPad(){const f=sv.firstElementChild;if(!f||!f._coop)return;const hd=document.querySelector('.disco'),key=document.body.dataset.site,extra=key=='diet'?(slope.rise||0):0;
  try{f.contentWindow.postMessage({tsEmbed:1,type:'pad',px:Math.max(0,hd.offsetHeight-extra)/(f._sk||1),onBody:ONBODY.includes(key),dbg:DBG},new URL(f.dataset.u).origin)}catch{}}
-const sizeTall=(f,h)=>{f._h=h;const k=f._sk||1;sv.style.height=Math.ceil(h*k)+'px';f.style.height=h+'px';if(k!==1){f.style.width=(100/k)+'%';f.style.transform='scale('+k+')';f.style.transformOrigin='0 0'}else f.style.width='100%'};
-let VPR=0;const sendVP=()=>{if(VPR)return;VPR=requestAnimationFrame(()=>{VPR=0;const f=sv.firstElementChild;if(!f||!f._tall)return;const r=f.getBoundingClientRect(),k=f._sk||1,top=Math.max(0,-r.top)/k,h=(Math.min(r.bottom,innerHeight)-Math.max(r.top,0))/k;try{f.contentWindow.postMessage({tsEmbed:1,type:'vp',top,height:Math.max(0,h)},new URL(f.dataset.u).origin)}catch{}})};
-addEventListener('scroll',sendVP,{passive:true});addEventListener('resize',sendVP);
+// sites with ts-embed.js scroll natively inside the frame (so their own sticky bars and popups just work) and report how far they've scrolled;
+// the banner follows by that amount, like it did when everything was one domain
 addEventListener('message',e=>{const f=sv.firstElementChild;if(!f||e.source!==f.contentWindow)return;const m=e.data;if(!m||m.tsEmbed!==1)return;
  let ok=false;try{ok=e.origin===new URL(f.dataset.u).origin}catch{}if(!ok)return;
- dbg('ts-embed: '+m.type+(m.h?' '+m.h+'px':'')+' from '+e.origin);
- if(m.type==='hello'){if(!f._tall){f._tall=1;document.body.classList.add('tall');cancelAnimationFrame(FOLLOW);try{f._unpad&&f._unpad()}catch{}shiftHdr(0)}scrollTo(0,0);sizeTall(f,Math.max(f._h||0,Math.round(innerHeight/(f._sk||1))));fitView();sendPad();sendVP()}
- else if(m.type==='height'&&f._tall&&m.h>0){sizeTall(f,Math.ceil(m.h));sendVP()}});
+ if(m.type!=='scroll')dbg('ts-embed: '+m.type+' from '+e.origin);
+ if(m.type==='hello'){if(!f._coop){f._coop=1;document.body.classList.add('coop');cancelAnimationFrame(FOLLOW);try{f._unpad&&f._unpad()}catch{}}shiftHdr(0);fitView();sendPad()}
+ else if(m.type==='scroll'&&f._coop&&typeof m.y=='number'){const hd=document.querySelector('.disco');shiftHdr(Math.min(Math.max(0,m.y)*(f._sk||1),hd.offsetHeight))}});
 function route(){const m=location.hash.match(/^#\/(\w+)(?:\/(.*))?$/);if(m&&SITE[m[1]])showSite(m[1],m[2]||'');else showMain()}
 const repaintSports=()=>{if(document.body.dataset.site=='sports')paint(sportsBg())};
 addEventListener('storage',repaintSports);TSB.ready.then(repaintSports);try{matchMedia('(prefers-color-scheme: dark)').addEventListener('change',repaintSports)}catch{}
