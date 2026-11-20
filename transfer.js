@@ -3,7 +3,7 @@
    - marcitech.is-a.dev : normal localStorage, plus a "move my data" popup that redirects to the new site */
 (()=>{
 const NEW_URL='https://www.trendslope.com/';
-const BRIDGE='https://marcitech.is-a.dev/Trendslope/bridge.html';
+const BRIDGE='https://marcitech.is-a.dev/bridge.html';
 const AUTO_FROM=Date.parse('2027-01-01');   // on/after this date the old site transfers + redirects without asking
 const KEYS=['movies_favs','music_favs','stocks_favs','software_favs2','ba_favs','trending_favorites','slickdeals_favorites','singleManSavedWeeks','singleManCurrentWeek','singleManFormData'];
 const okKey=k=>KEYS.includes(k)||k.startsWith('fb_');
