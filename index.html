@@ -618,7 +618,7 @@ const viewInfo=()=>{const p=document.createElement('div');p.style.cssText='posit
 if(DBG){addEventListener('scroll',()=>{if(dbgEl)dbgEl.textContent=dbgEl.dataset.t+' | '+viewInfo()},{passive:true})}
 const ONBODY=['movies','music','software','books','stocks','trends','deals'];
 function sendPad(){const f=sv.firstElementChild;if(!f||!f._tall)return;const hd=document.querySelector('.disco'),key=document.body.dataset.site,extra=key=='diet'?(slope.rise||0):0;
- try{f.contentWindow.postMessage({tsEmbed:1,type:'pad',px:Math.max(0,hd.offsetHeight-extra)/(f._sk||1),onBody:ONBODY.includes(key)},new URL(f.dataset.u).origin)}catch{}}
+ try{f.contentWindow.postMessage({tsEmbed:1,type:'pad',px:Math.max(0,hd.offsetHeight-extra)/(f._sk||1),onBody:ONBODY.includes(key),dbg:DBG},new URL(f.dataset.u).origin)}catch{}}
 const sizeTall=(f,h)=>{f._h=h;const k=f._sk||1;sv.style.height=Math.ceil(h*k)+'px';f.style.height=h+'px';if(k!==1){f.style.width=(100/k)+'%';f.style.transform='scale('+k+')';f.style.transformOrigin='0 0'}else f.style.width='100%'};
 let VPR=0;const sendVP=()=>{if(VPR)return;VPR=requestAnimationFrame(()=>{VPR=0;const f=sv.firstElementChild;if(!f||!f._tall)return;const r=f.getBoundingClientRect(),k=f._sk||1,top=Math.max(0,-r.top)/k,h=(Math.min(r.bottom,innerHeight)-Math.max(r.top,0))/k;try{f.contentWindow.postMessage({tsEmbed:1,type:'vp',top,height:Math.max(0,h)},new URL(f.dataset.u).origin)}catch{}})};
 addEventListener('scroll',sendVP,{passive:true});addEventListener('resize',sendVP);
