@@ -89,7 +89,17 @@ body.site-mode .disco{flex:none}
 .disco h1{font-size:clamp(24px,6vw,40px);text-shadow:2px 2px 0 #ff2fa0,3px 3px 0 #1B63E0}
 .disco .tag{display:none}
 body.site-mode #siteview{display:block;position:fixed;left:0;right:0;top:0;bottom:0;overflow:hidden}   /* the site fills the whole screen; the banner sits on top and scrolls away */
-body.site-mode.xo #siteview{top:var(--vt,0px)}   /* cross-origin (trendslope.com): the page can't pad the frame, so the frame starts under the banner instead */
+body.site-mode.xo #siteview{top:var(--vt,0px)}   /* cross-origin (trendslope.com): the page can't pad the frame or follow its scroll, so the frame starts under a slim banner instead */
+body.site-mode.xo .disco{-webkit-clip-path:none;clip-path:none;padding:0;height:34px;box-shadow:0 2px 10px rgba(106,17,203,.4)}   /* same glowing gradient, just slim */
+body.site-mode.xo .disco .hero{display:none}
+body.site-mode.xo .slope{display:block;left:0;bottom:0;height:34px;line-height:34px;width:100%!important;transform:none!important;-webkit-transform:none!important}
+body.site-mode.xo .slope .tr{font-size:12px}
+body.site-mode.xo #burger{top:3px;right:8px;width:28px;height:28px;gap:3px}
+body.site-mode.xo #burger span{width:14px}
+body.site-mode.xo #burger[aria-expanded=true] span:nth-child(1){transform:translateY(5px) rotate(45deg)}
+body.site-mode.xo #burger[aria-expanded=true] span:nth-child(3){transform:translateY(-5px) rotate(-45deg)}
+body.site-mode.xo #menu{top:38px}
+@media(min-width:1280px){body.site-mode.xo #menu{top:3px;right:12px;max-width:none;flex-wrap:nowrap}body.site-mode.xo #menu a{padding:5px 11px}}
 body.site-mode #back{display:flex}
 @media(max-width:700px){
  /* phones: a slim full-width bar, still slanted: tall on the left, short on the right (where the menu button sits) */
@@ -585,8 +595,10 @@ const SITEBG={movies:'#FFFFFF',music:'#FFFFFF',software:'#FFFFFF',books:'#FFFFFF
 const shiftHdr=px=>{const hd=document.querySelector('.disco'),b=document.getElementById('burger'),m=document.getElementById('menu'),t=px?-px+'px':'';
  hd.style.top=t;b&&(b.style.marginTop=t);m&&(m.style.marginTop=t)};
 let FOLLOW=0;
-const fitView=()=>{const hd=document.querySelector('.disco');document.body.classList.toggle('xo',!!TSB.on);document.documentElement.style.setProperty('--vt',(TSB.on&&document.body.classList.contains('site-mode')?Math.max(0,hd.offsetHeight-(document.body.dataset.site=='diet'?(slope.rise||0):0)):0)+'px')};
-const sportsBg=()=>{try{return getEffectiveTheme()==='light'?'#f5f7fc':'#0d1322'}catch{return '#0d1322'}};   // Sports follows its own dark/light choice (same fb_theme setting, same origin)
+const fitView=()=>{const hd=document.querySelector('.disco');document.body.classList.toggle('xo',!!TSB.on);document.documentElement.style.setProperty('--vt',(TSB.on&&document.body.classList.contains('site-mode')?hd.offsetHeight:0)+'px')};
+const sportsBg=()=>{try{
+ if(TSB.on){let t=TSB.get('fb_theme');if(t!=='light'&&t!=='dark')t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';return t==='light'?'#f5f7fc':'#0d1322'}   // trendslope.com: the frame's theme lives in marcitech storage, read through the bridge
+ return getEffectiveTheme()==='light'?'#f5f7fc':'#0d1322'}catch{return '#0d1322'}};   // Sports follows its own dark/light choice (same fb_theme setting, same origin)
 const SITESCALE={movies:.8,music:.8,software:.8,books:.62,stocks:.75,trends:.75,deals:.6,sports:.85,diet:1},PSCALE=1,isMob=()=>matchMedia('(hover:none) and (pointer:coarse) and (max-width:700px)').matches;   // scaling is for phones only, never desktop
 function openSite(key,sub){location.hash='#/'+key+(sub?'/'+sub:'')}
 // a fresh iframe each time (its first load replaces the blank page instead of adding browser-history steps)
@@ -606,6 +618,8 @@ function showSite(key,sub){const url=SITEURL(key,sub);if(!document.body.classLis
  document.body.dataset.site=key;paint(key=='sports'?sportsBg():key=='diet'?'':SITEBG[key]);slope.k='';scrollTo(0,0);slope();shiftHdr(0);fitView();setTimeout(slope,60);setTimeout(fitView,60);setTimeout(fitView,400)}
 function showMain(){if(!document.body.classList.contains('site-mode'))return;document.body.classList.remove('site-mode');delete document.body.dataset.site;cancelAnimationFrame(FOLLOW);paint('');shiftHdr(0);sv.replaceChildren();slope.k='';slope();render();scrollTo(0,MAINY)}
 function route(){const m=location.hash.match(/^#\/(\w+)(?:\/(.*))?$/);if(m&&SITE[m[1]])showSite(m[1],m[2]||'');else showMain()}
+const repaintSports=()=>{if(document.body.dataset.site=='sports')paint(sportsBg())};
+addEventListener('storage',repaintSports);TSB.ready.then(repaintSports);try{matchMedia('(prefers-color-scheme: dark)').addEventListener('change',repaintSports)}catch{}
 addEventListener('hashchange',route);addEventListener('resize',fitView);try{new ResizeObserver(fitView).observe(document.querySelector('.disco'))}catch{}
 document.getElementById('back').onclick=()=>{history.replaceState(null,'',location.pathname+location.search);route()};   // one click, whatever the site did inside its frame
 const burger=document.getElementById('burger'),menu=document.getElementById('menu'),closeMenu=()=>{menu.classList.remove('open');burger.setAttribute('aria-expanded','false')};
