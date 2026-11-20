@@ -72,13 +72,21 @@ async function goNew(){
 function popup(){
  const w=document.createElement('div');
  w.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:99998;display:flex;align-items:center;justify-content:center;padding:16px;font-family:system-ui,sans-serif';
- w.innerHTML='<div style="background:#fff;color:#222;max-width:420px;width:100%;border-radius:16px;overflow:hidden;box-shadow:0 12px 48px rgba(0,0,0,.5)"><div style="background:#7B2CBF;color:#fff;padding:14px 18px;font-weight:800;font-size:17px">Trendslope has a new home</div><div style="padding:18px;line-height:1.45;font-size:15px">Trendslope now lives at <b>www.trendslope.com</b>. Move your favorites, picks and settings over in one click. Your data stays here too, so nothing is lost.</div><div style="display:flex;gap:10px;padding:0 18px 18px;flex-wrap:wrap"><button id="tsGo" style="flex:1;min-width:150px;background:#7B2CBF;color:#fff;border:0;border-radius:10px;padding:12px;font:700 15px system-ui,sans-serif;cursor:pointer">Transfer my data</button><button id="tsSkip" style="flex:1;min-width:110px;background:#eee;color:#333;border:0;border-radius:10px;padding:12px;font:600 15px system-ui,sans-serif;cursor:pointer">Not now</button></div></div>';
+ w.innerHTML='<div style="background:#fff;color:#222;max-width:420px;width:100%;border-radius:16px;overflow:hidden;box-shadow:0 12px 48px rgba(0,0,0,.5)"><div style="background:#7B2CBF;color:#fff;padding:14px 18px;font-weight:800;font-size:17px">Trendslope has a new home</div><div style="padding:18px;line-height:1.45;font-size:15px">Trendslope now lives at <b>www.trendslope.com</b>, and <b>this site will be removed on 1/1/2027</b>. Move your favorites, picks and settings over in one click. Your data stays here too, so nothing is lost.</div><div style="display:flex;gap:10px;padding:0 18px 18px;flex-wrap:wrap"><button id="tsGo" style="flex:1;min-width:150px;background:#7B2CBF;color:#fff;border:0;border-radius:10px;padding:12px;font:700 15px system-ui,sans-serif;cursor:pointer">Transfer my data</button><button id="tsSkip" style="flex:1;min-width:110px;background:#eee;color:#333;border:0;border-radius:10px;padding:12px;font:600 15px system-ui,sans-serif;cursor:pointer">Not now</button></div></div>';
  document.body.appendChild(w);
  w.querySelector('#tsGo').onclick=()=>{w.querySelector('#tsGo').textContent='Transferring\u2026';goNew()};
  w.querySelector('#tsSkip').onclick=()=>{try{localStorage.setItem('ts_migrate_skip',String(Date.now()))}catch{}w.remove()};
 }
+function banner(){
+ const b=document.createElement('div');b.id='tsOldBanner';
+ b.style.cssText='background:#7B2CBF;color:#fff;text-align:center;padding:9px 14px;font:600 14px/1.35 system-ui,sans-serif;position:relative;z-index:50';
+ b.innerHTML='This site will be removed on <b>1/1/2027</b>. Trendslope has moved to <a href="'+NEW_URL+'" style="color:#fff;text-decoration:underline">www.trendslope.com</a> \u2014 <a href="#" id="tsBannerGo" style="color:#ffe08a;text-decoration:underline">transfer my data</a>';
+ document.body.insertBefore(b,document.body.firstChild);
+ b.querySelector('#tsBannerGo').onclick=e=>{e.preventDefault();goNew()};
+}
 if(OLD){
  const run=()=>{
+  banner();
   if(Date.now()>=AUTO_FROM){goNew();return}
   let skip=0;try{skip=+localStorage.getItem('ts_migrate_skip')||0}catch{}
   if(Date.now()-skip>3*864e5)popup();
