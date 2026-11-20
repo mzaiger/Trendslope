@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#2a0a4a">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Trendslope</title>
 <link rel="icon" type="image/gif" href="favicon.gif">
 <link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700;900&family=Permanent+Marker&display=swap" rel="stylesheet">
@@ -9,7 +9,7 @@
 <style>
 :root{--rise:clamp(18px,4vw,32px);--bg:#fff;--panel:#F2F7FD;--line:#D9E5F2;--text:#10233F;--dim:#64798E;--blue:#1B63E0;--radius:10px}
 *{box-sizing:border-box}
-html,body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui,sans-serif;min-height:100%}
+html,body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui,sans-serif}
 button{font-family:inherit;cursor:pointer}
 /* boogie header */
 .disco{position:relative;color:#fff;background:linear-gradient(120deg,#2a0a4a,#6a11cb 35%,#ff2fa0 70%,#ffb347);background-size:300% 300%;animation:shift 12s ease infinite;z-index:5;-webkit-clip-path:polygon(0 0,100% 0,100% calc(100% - var(--rise)),0 100%);clip-path:polygon(0 0,100% 0,100% calc(100% - var(--rise)),0 100%);padding-bottom:calc(var(--rise) + 40px)}
@@ -71,7 +71,7 @@ body{position:relative}
  #menu a{border:0;background:none;border-radius:10px;padding:12px 12px;font-size:13px;-webkit-backdrop-filter:none;backdrop-filter:none}
  #menu a:hover{background:rgba(255,255,255,.14);color:#fff}}
 #siteview{display:none}
-#siteview iframe{position:fixed;inset:0;width:100vw;height:100vh;height:100dvh;border:0;background:transparent}
+#siteview iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:#fff}
 #back{display:none;position:fixed;left:1rem;bottom:calc(1rem + env(safe-area-inset-bottom,0px));z-index:400;align-items:center;gap:.4rem;font:600 .78rem system-ui,-apple-system,sans-serif;color:#fff;background:linear-gradient(100deg,#2a0a4a,#6a11cb);border:1px solid #8e2de2;border-radius:999px;padding:.4rem .8rem;cursor:pointer;box-shadow:0 10px 24px -12px rgba(0,0,0,.6)}
 #back:hover{border-color:#ff2fa0;color:#ffd0ec}
 #totop{display:flex;position:fixed;right:1rem;bottom:calc(1rem + env(safe-area-inset-bottom,0px));z-index:400;align-items:center;gap:.4rem;font:600 .78rem system-ui,-apple-system,sans-serif;color:#fff;background:linear-gradient(100deg,#2a0a4a,#6a11cb);border:1px solid #8e2de2;border-radius:999px;padding:.45rem .85rem;cursor:pointer;box-shadow:0 10px 24px -12px rgba(0,0,0,.6);opacity:0;pointer-events:none;transform:translateY(8px);transition:opacity .2s,transform .2s}
@@ -80,7 +80,7 @@ body{position:relative}
 body.site-mode #totop{display:none}
 #totop svg{width:.95rem;height:.95rem;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 #back svg{width:.95rem;height:.95rem;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
-body.site-mode{height:100vh;height:100dvh;display:flex;flex-direction:column;overflow:hidden;background:var(--site-bg,#2a0a4a)}
+body.site-mode{height:100vh;height:100dvh;display:flex;flex-direction:column;overflow:hidden}
 body.site-mode main{display:none}
 body.site-mode .disco{flex:none}
 .disco{padding-bottom:calc(var(--rise) + 32px)}
@@ -88,11 +88,14 @@ body.site-mode .disco{flex:none}
 .disco .hero img{width:84px;max-width:84px;border-width:2px;box-shadow:0 0 14px #ff2fa0}
 .disco h1{font-size:clamp(24px,6vw,40px);text-shadow:2px 2px 0 #ff2fa0,3px 3px 0 #1B63E0}
 .disco .tag{display:none}
-body.site-mode #siteview{display:block;position:fixed;inset:0;overflow:hidden;z-index:1}   /* the site fills the whole screen; the banner sits on top and scrolls away */
-body.site-mode.xo #siteview{top:0}   /* cross-origin pages fill the screen behind Safari's browser bars */
+body.site-mode #siteview{display:block;position:fixed;left:0;right:0;top:0;bottom:0;overflow:hidden}   /* the site fills the whole screen; the banner sits on top and scrolls away */
+body.site-mode.xo #siteview{top:var(--vt,0px)}   /* cross-origin (trendslope.com): the page can't pad the frame or follow its scroll, so the frame starts under a slim banner instead */
 body.site-mode .disco{-webkit-clip-path:none;clip-path:none;padding:0;height:10px;overflow:hidden;box-shadow:0 1px 6px rgba(106,17,203,.4)}   /* same glowing gradient, just a thin strip: no logo, ticker or menu */
 body.site-mode .disco .hero,body.site-mode .slope,body.site-mode #burger,body.site-mode #menu{display:none!important}
-body.site-mode #siteview{left:0;right:0}
+body.site-mode #siteview{left:env(safe-area-inset-left,0px);right:env(safe-area-inset-right,0px)}
+body.site-mode.tall{height:auto;min-height:100dvh;display:block;overflow:visible}   /* a site that has ts-embed.js: the frame is as tall as the site and the PAGE scrolls (Safari's bars collapse, the page runs under them, the slim bar scrolls away) */
+body.site-mode.tall #siteview,body.site-mode.tall.xo #siteview{position:relative;left:0;right:auto;top:0;bottom:auto;margin:0 env(safe-area-inset-right,0px) 0 env(safe-area-inset-left,0px);overflow:hidden}
+body.site-mode.tall #siteview iframe{position:absolute;left:0;top:0}
 body.site-mode #back{display:flex}
 @media(max-width:700px){
  /* phones: a slim full-width bar, still slanted: tall on the left, short on the right (where the menu button sits) */
@@ -583,7 +586,7 @@ document.getElementById('moreBtn').onclick=more;
 // ===== menu + in-page viewer: the other sites open in an iframe under the Trendslope header =====
 let MAINY=0;const sv=document.getElementById('siteview');
 // each site's own mobile scale (its viewport tag's initial-scale), vs this page's 1.0
-const SITEBG={movies:'#FFFFFF',music:'#FFFFFF',software:'#FFFFFF',books:'#FFFFFF',stocks:'#FFFFFF',trends:'#FFFFFF',deals:'#FFFFFF',sports:'#0d1322',diet:'#EEF2F0'},paint=c=>{document.documentElement.style.background=document.body.style.background=c||'';const meta=document.querySelector('meta[name="theme-color"]');if(meta)meta.content=c||'#2a0a4a'};   // each site's own page color fills the strip under the slope, so the page drops in below it seamlessly
+const SITEBG={movies:'#FFFFFF',music:'#FFFFFF',software:'#FFFFFF',books:'#FFFFFF',stocks:'#FFFFFF',trends:'#FFFFFF',deals:'#FFFFFF',sports:'#0d1322',diet:'#EEF2F0'},paint=c=>{document.documentElement.style.background=document.body.style.background=c||''};   // each site's own page color fills the strip under the slope, so the page drops in below it seamlessly
 // banner scroll-away: plain top / margin offsets (no transforms or custom properties, which iOS Safari mishandles together with clip-path)
 const shiftHdr=px=>{const hd=document.querySelector('.disco'),b=document.getElementById('burger'),m=document.getElementById('menu'),t=px?-px+'px':'';
  hd.style.top=t;b&&(b.style.marginTop=t);m&&(m.style.marginTop=t)};
@@ -596,20 +599,28 @@ const SITESCALE={movies:.8,music:.8,software:.8,books:.62,stocks:.75,trends:.75,
 function openSite(key,sub){location.hash='#/'+key+(sub?'/'+sub:'')}
 // a fresh iframe each time (its first load replaces the blank page instead of adding browser-history steps)
 function showSite(key,sub){const url=SITEURL(key,sub);if(!document.body.classList.contains('site-mode')){MAINY=scrollY;document.body.classList.add('site-mode')}
- const cur=sv.firstElementChild;if(!cur||cur.dataset.u!==url){const f=document.createElement('iframe');f.dataset.u=url;f.title=NAMES[key];f.src=url;
+ const cur=sv.firstElementChild;if(!cur||cur.dataset.u!==url){document.body.classList.remove('tall');sv.style.height='';const f=document.createElement('iframe');f.dataset.u=url;f.title=NAMES[key];f.src=url;
   const s=SITESCALE[key],k=s/PSCALE,mobile=isMob();if(mobile&&s&&Math.abs(k-1)>.01)f.style.cssText=`inset:auto;top:0;left:0;width:${100/k}%;height:${100/k}%;transform:scale(${k});transform-origin:0 0`;   // lay the site out at its own width, then scale it to fit
-  const sk=(mobile&&s&&Math.abs(k-1)>.01)?k:1;
+  const sk=(mobile&&s&&Math.abs(k-1)>.01)?k:1;f._sk=sk;
   cancelAnimationFrame(FOLLOW);
-  f.addEventListener('load',()=>{try{const w=f.contentWindow,hd=document.querySelector('.disco'),root=w.document.documentElement;
+  f.addEventListener('load',()=>{try{if(f._tall)return;const w=f.contentWindow,hd=document.querySelector('.disco'),root=w.document.documentElement;
    const onBody=['movies','music','software','books','stocks','trends','deals'].includes(key),tgt=onBody?w.document.body:root,base=onBody?(parseFloat(w.getComputedStyle(tgt).paddingTop)||0):0;   // those sites paint their slight blue glow on <body>, so the space under the banner goes on <body> too (on <html> it would show plain white)
    const pad=()=>{const extra=0;tgt.style.paddingTop=(base+(hd.offsetHeight-extra)/sk)+'px'};   // the site starts just under the banner...
-   pad();addEventListener('resize',pad);
+   pad();addEventListener('resize',pad);f._unpad=()=>{removeEventListener('resize',pad);tgt.style.paddingTop=''};
    cancelAnimationFrame(FOLLOW);
    const tick=()=>{try{const y=Math.max(0,w.scrollY||root.scrollTop||0);shiftHdr(Math.min(y*sk,hd.offsetHeight))}catch{}FOLLOW=requestAnimationFrame(tick)};tick()}catch{}});   // ...and the banner moves up exactly as far as the site scrolls (same origin; read every frame so it stays smooth even when iOS delays scroll events)
   if(key=='sports')f.addEventListener('load',()=>{try{const b=f.contentDocument.body,sync=()=>paint(getComputedStyle(b).getPropertyValue('--bg').trim()||(b.classList.contains('light-theme')?'#f5f7fc':'#0d1322'));sync();new MutationObserver(sync).observe(b,{attributes:true,attributeFilter:['class']})}catch{}});   // follow the theme toggle inside the frame
   sv.replaceChildren(f)}
  document.body.dataset.site=key;paint(key=='sports'?sportsBg():key=='diet'?'':SITEBG[key]);slope.k='';scrollTo(0,0);slope();shiftHdr(0);fitView();setTimeout(slope,60);setTimeout(fitView,60);setTimeout(fitView,400)}
-function showMain(){if(!document.body.classList.contains('site-mode'))return;document.body.classList.remove('site-mode');delete document.body.dataset.site;cancelAnimationFrame(FOLLOW);paint('');shiftHdr(0);sv.replaceChildren();slope.k='';slope();render();scrollTo(0,MAINY)}
+function showMain(){if(!document.body.classList.contains('site-mode'))return;document.body.classList.remove('site-mode','tall');sv.style.height='';delete document.body.dataset.site;cancelAnimationFrame(FOLLOW);paint('');shiftHdr(0);sv.replaceChildren();slope.k='';slope();render();scrollTo(0,MAINY)}
+// sites with ts-embed.js announce themselves and report their height; the frame then grows to fit and the page itself scrolls
+const sizeTall=(f,h)=>{f._h=h;const k=f._sk||1;sv.style.height=Math.ceil(h*k)+'px';f.style.height=h+'px';if(k!==1){f.style.width=(100/k)+'%';f.style.transform='scale('+k+')';f.style.transformOrigin='0 0'}else f.style.width='100%'};
+let VPR=0;const sendVP=()=>{if(VPR)return;VPR=requestAnimationFrame(()=>{VPR=0;const f=sv.firstElementChild;if(!f||!f._tall)return;const r=f.getBoundingClientRect(),k=f._sk||1,top=Math.max(0,-r.top)/k,h=(Math.min(r.bottom,innerHeight)-Math.max(r.top,0))/k;try{f.contentWindow.postMessage({tsEmbed:1,type:'vp',top,height:Math.max(0,h)},new URL(f.dataset.u).origin)}catch{}})};
+addEventListener('scroll',sendVP,{passive:true});addEventListener('resize',sendVP);
+addEventListener('message',e=>{const f=sv.firstElementChild;if(!f||e.source!==f.contentWindow)return;const m=e.data;if(!m||m.tsEmbed!==1)return;
+ let ok=false;try{ok=e.origin===new URL(f.dataset.u).origin}catch{}if(!ok)return;
+ if(m.type==='hello'){if(!f._tall){f._tall=1;document.body.classList.add('tall');cancelAnimationFrame(FOLLOW);try{f._unpad&&f._unpad()}catch{}shiftHdr(0)}scrollTo(0,0);sizeTall(f,Math.max(f._h||0,Math.round(innerHeight/(f._sk||1))));sendVP()}
+ else if(m.type==='height'&&f._tall&&m.h>0){sizeTall(f,Math.ceil(m.h));sendVP()}});
 function route(){const m=location.hash.match(/^#\/(\w+)(?:\/(.*))?$/);if(m&&SITE[m[1]])showSite(m[1],m[2]||'');else showMain()}
 const repaintSports=()=>{if(document.body.dataset.site=='sports')paint(sportsBg())};
 addEventListener('storage',repaintSports);TSB.ready.then(repaintSports);try{matchMedia('(prefers-color-scheme: dark)').addEventListener('change',repaintSports)}catch{}
