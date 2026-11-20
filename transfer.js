@@ -3,7 +3,7 @@
    - marcitech.is-a.dev : normal localStorage, plus a "move my data" popup that redirects to the new site */
 (()=>{
 const NEW_URL='https://www.trendslope.com/';
-const BRIDGE='https://marcitech.is-a.dev/bridge.html';
+const BRIDGE='https://marcitech.is-a.dev/Trendslope/bridge.html';
 const AUTO_FROM=Date.parse('2027-01-01');   // on/after this date the old site transfers + redirects without asking
 const KEYS=['movies_favs','music_favs','stocks_favs','software_favs2','ba_favs','trending_favorites','slickdeals_favorites','singleManSavedWeeks','singleManCurrentWeek','singleManFormData'];
 const okKey=k=>KEYS.includes(k)||k.startsWith('fb_');
@@ -81,7 +81,8 @@ function banner(){
  const b=document.createElement('div');b.id='tsOldBanner';
  b.style.cssText='background:#7B2CBF;color:#fff;text-align:center;padding:9px 14px;font:600 14px/1.35 system-ui,sans-serif;position:relative;z-index:50';
  b.innerHTML='This site will be removed on <b>1/1/2027</b>. Trendslope has moved to <a href="'+NEW_URL+'" style="color:#fff;text-decoration:underline">www.trendslope.com</a> \u2014 <a href="#" id="tsBannerGo" style="color:#ffe08a;text-decoration:underline">transfer my data</a>';
- document.body.insertBefore(b,document.body.firstChild);
+ const st=document.createElement('style');st.textContent='html:has(body.site-mode) #tsOldBanner{display:none}';document.head.appendChild(st);
+ document.documentElement.insertBefore(b,document.body);   // above <body>, so the page's absolutely-positioned menu is measured from below the bar
  b.querySelector('#tsBannerGo').onclick=e=>{e.preventDefault();goNew()};
 }
 if(OLD){
