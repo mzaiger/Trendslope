@@ -617,7 +617,7 @@ const viewInfo=()=>{const p=document.createElement('div');p.style.cssText='posit
 if(DBG){addEventListener('scroll',()=>{if(dbgEl)dbgEl.textContent=dbgEl.dataset.t+' | '+viewInfo()},{passive:true})}
 const ONBODY=['movies','music','software','books','stocks','trends','deals'];
 function sendPad(){const f=sv.firstElementChild;if(!f||!f._coop)return;const hd=document.querySelector('.disco'),key=document.body.dataset.site,extra=key=='diet'?(slope.rise||0):0;
- try{f.contentWindow.postMessage({tsEmbed:1,type:'pad',px:Math.max(0,hd.offsetHeight-extra)/(f._sk||1),onBody:ONBODY.includes(key),dbg:DBG},new URL(f.dataset.u).origin)}catch{}}
+ try{f.contentWindow.postMessage({tsEmbed:1,type:'pad',px:Math.max(0,hd.offsetHeight-extra)/(f._sk||1),onBody:ONBODY.includes(key),fill:key=='sports'?'var(--bg)':'',dbg:DBG},new URL(f.dataset.u).origin)}catch{}}
 // sites with ts-embed.js scroll natively inside the frame (so their own sticky bars and popups just work) and report how far they've scrolled;
 // the banner follows by that amount, like it did when everything was one domain
 addEventListener('message',e=>{const f=sv.firstElementChild;if(!f||e.source!==f.contentWindow)return;const m=e.data;if(!m||m.tsEmbed!==1)return;
