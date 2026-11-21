@@ -549,8 +549,8 @@ function render(){if(!READY||BOOT)return;LSC.clear();setTimeout(()=>LSC.clear(),
  if(fav)all=[...ITEMS,...extras(),...dietItems(lo,hi,true)].filter(i=>isFav(i)||(i.src=='diet'&&i.today)||(i.src=='sports'&&PS.hasAnyPick(i.sport,i.raw.id)));
  else all=liveList(W);
  all=all.filter(i=>!S.hide.includes(i.src));
- // nothing dated tomorrow shows until 6pm tonight (the page re-renders every minute, so it appears by itself at 6)
- if(new Date(now).getHours()<18){const a=new Date(now);a.setHours(0,0,0,0);a.setDate(a.getDate()+1);const b=new Date(a);b.setDate(b.getDate()+1);all=all.filter(i=>!(i.ts>=a.getTime()&&i.ts<b.getTime()))}
+ // nothing dated tomorrow shows in the Live stream until 6pm tonight (the page re-renders every minute, so it appears by itself at 6). Favorites always show everything saved.
+ if(!fav&&new Date(now).getHours()<18){const a=new Date(now);a.setHours(0,0,0,0);a.setDate(a.getDate()+1);const b=new Date(a);b.setDate(b.getDate()+1);all=all.filter(i=>!(i.ts>=a.getTime()&&i.ts<b.getTime()))}
  if(S.sort=='new'){all.sort((a,b)=>b.ts-a.ts);all=mixBlocks(all)}
  else{const dI=all.filter(i=>i.src=='diet'),cl=[...dI].sort((a,b)=>Math.abs(a.ts-now)-Math.abs(b.ts-now))[0],dk=x=>x===cl?-1:x.ts>cl.ts?x.ts-cl.ts:1e13+(cl.ts-x.ts);   // closest meal first (before or after now), then forward in time only; earlier meals trail
   dI.sort((a,b)=>dk(a)-dk(b)).forEach((x,k)=>{x.rk=k+1});all.forEach(i=>{if(i.src!='diet')i.rk=i.rank||1e6});
