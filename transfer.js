@@ -9,6 +9,10 @@ const KEYS=['movies_favs','music_favs','stocks_favs','software_favs2','ba_favs',
 const okKey=k=>KEYS.includes(k)||k.startsWith('fb_');
 const H=location.hostname, NEW=/(^|\.)trendslope\.com$/.test(H), OLD=/(^|\.)marcitech\.is-a\.dev$/.test(H);
 const T=window.TSB={on:NEW,M:new Map()};
+// Safari keeps storage written by a frame on another site (the bridge) only for the session, so favorites and picks held there can vanish
+// when the app is closed. On the new domain this page also keeps its own copy (first-party storage, 'ts_bk') and puts anything the bridge lost back.
+let bkSoon=()=>{};
+const bkRead=()=>{try{const o=JSON.parse(localStorage.getItem('ts_bk')||'{}');return o&&typeof o=='object'?o:{}}catch{return{}}};
 const fire=()=>dispatchEvent(new Event('storage'));
 
 /* ---------- bridge client (new site only) ---------- */
@@ -22,23 +26,28 @@ if(NEW){
  send=m=>new Promise(res=>{const id=++n;pend.set(id,res);m.ts=1;m.id=id;
   loaded.then(()=>{try{frame.contentWindow.postMessage(m,BO)}catch{res(null)}});
   setTimeout(()=>{if(pend.delete(id))res(null)},3500)});
- const load=()=>send({op:'get'}).then(r=>{if(r&&r.data){T.M.clear();for(const[k,v]of Object.entries(r.data))T.M.set(k,v);return true}return false});
+ bkSoon=(()=>{let t=0;return()=>{if(t)return;t=setTimeout(()=>{t=0;try{const o={};T.M.forEach((v,k)=>{o[k]=v});localStorage.setItem('ts_bk',JSON.stringify(o))}catch{}},400)}})();
+ const load=()=>send({op:'get'}).then(r=>{if(r&&r.data){T.M.clear();for(const[k,v]of Object.entries(r.data))T.M.set(k,v);return true}
+  T.M.clear();for(const[k,v]of Object.entries(bkRead()))if(typeof v=='string')T.M.set(k,v);return false});   // bridge didn't answer: show our own copy
+ const restore=async()=>{const miss={};for(const[k,v]of Object.entries(bkRead())){if(typeof v=='string'&&!T.M.has(k))miss[k]=v}
+  if(Object.keys(miss).length){for(const[k,v]of Object.entries(miss))T.M.set(k,v);await send({op:'setMany',items:miss})}   // the bridge lost these: put them back
+  bkSoon()};
  addEventListener('message',e=>{
   if(e.origin!==BO||e.source!==frame.contentWindow)return;const m=e.data;if(!m||m.ts!==1)return;
   if(m.re){const f=pend.get(m.id);if(f){pend.delete(m.id);f(m)}return}
-  if(m.op==='changed'){if(m.key==null)load().then(fire);else{m.value==null?T.M.delete(m.key):T.M.set(m.key,m.value);fire()}}
+  if(m.op==='changed'){if(m.key==null)load().then(fire);else{m.value==null?T.M.delete(m.key):T.M.set(m.key,m.value);bkSoon();fire()}}
  });
- T.ready=load().then(ok=>{T.bridgeOk=ok;return ok});
+ T.ready=load().then(async ok=>{T.bridgeOk=ok;if(ok)await restore();else fire();return ok});
 }else T.ready=Promise.resolve(true);
 
 /* ---------- storage API used by index.html ---------- */
 T.get=k=>{if(NEW)return T.M.has(k)?T.M.get(k):null;try{return localStorage.getItem(k)}catch{return null}};
 T.setRaw=(k,s)=>{
- if(NEW){s==null?T.M.delete(k):T.M.set(k,s);return send({op:'set',key:k,value:s==null?null:s})}
+ if(NEW){s==null?T.M.delete(k):T.M.set(k,s);bkSoon();return send({op:'set',key:k,value:s==null?null:s})}
  try{s==null?localStorage.removeItem(k):localStorage.setItem(k,s)}catch(e){return Promise.reject(e)}return Promise.resolve();
 };
 T.setMany=o=>{
- if(NEW){for(const[k,v]of Object.entries(o))T.M.set(k,v);return send({op:'setMany',items:o})}
+ if(NEW){for(const[k,v]of Object.entries(o))T.M.set(k,v);bkSoon();return send({op:'setMany',items:o})}
  try{for(const[k,v]of Object.entries(o))localStorage.setItem(k,v)}catch{}return Promise.resolve();
 };
 
