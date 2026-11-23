@@ -221,7 +221,7 @@ async function music(){const d=await J(RAW(SITE.music)+'data/all.json');if(!d)re
  add(d.items.map((i,n)=>({id:'mu'+i.id,src:'music',raw:i,rank:i.rank||n+1,title:i.title,ts:i.date?dts(i.date):NaN})).filter(x=>!isNaN(x.ts)))}
 async function software(){for(const f of['github','steam','itunes']){const d=await J(RAW(SITE.software)+`data/${f}.json`);if(d)add(d.items.filter(i=>i.date).map((i,n)=>({id:'sw'+f+i.id,src:'software',f,raw:i,rank:(i.ranks&&(i.ranks['12']??i.ranks['0']))||n+1,title:i.title,ts:dts(i.date)})))}}
 async function booksAudio(){for(const f of['books','audiobooks','podcasts']){const d=await J(RAW(SITE.books)+`data/${f}.json`);if(d)add(d.items.filter(i=>i.date&&((i.ranks&&i.ranks['0'])||i.metric||999)<=20).map((i,n)=>({id:'ba'+f+i.id,src:'books',f,raw:i,rank:(i.ranks&&(i.ranks['12']??i.ranks['0']))||n+1,title:i.title,ts:dts(i.date)})))}}
-// Stocks: the Stocks site's overall board (All tab: a stock has to be on at least 2 of its 4 rankings, Gainers / Losers / Most Active / Buzz). The tile time is when the stock started trending.
+// Stocks: the Stocks site's overall board (All tab: a stock has to be on at least 2 of its 4 rankings, Gainers / Losers / Most Active / Buzz). The tile time is when the stock started trending. The 30-day window does not apply to it (see STSET in liveList): the top 20 always show.
 async function stocks(){const d=await J(RAW(SITE.stocks)+'data/board.json');if(!d||!d.stocks)return;
  const w=String((d.windows||[])[0]||''),nw=!!(d.sources&&'l' in d.sources),   // new board.json rows are [gain,loss,active,buzz,all,seen]; the old ones [gain,active,buzz,all,seen]
  rows=Object.entries(d.stocks).map(([sym,st])=>{let sc=(st.s||{})[w];if(sc&&!nw)sc=[sc[0],null,sc[1],sc[2],sc[3],sc[4]];return{sym,st,sc}}).filter(x=>x.sc);
@@ -501,7 +501,9 @@ function liveList(W){const lo=now-W,hi=now+Math.min(W,DAY/2),eod=new Date(now);e
  GSET=new Set([...byRk('social_media').slice(0,20),...byRk('reddit').slice(0,25),...byRk('google').filter(i=>addT(i)>=now-36e5).slice(0,25),...byRk('google').slice(0,20)].map(i=>i.id));
  // Slickdeals ignore the time window: deals from the past 2 hours + the top 20 overall by rank (deduped)
  const DSET=new Set(ITEMS.filter(i=>i.src=='deals'&&(i.rank<=20||i.ts>=now-2*36e5)).map(i=>i.id));
- const all=ITEMS.filter(i=>i.src=='sports'?(i.board&&i.pick&&i.ts>=lo&&i.ts<=eod.getTime()+DAY):i.src=='movies'?(i.rank!=null&&i.ts>=lo&&i.ts<=hi):i.src=='trends'?GSET.has(i.id):i.src=='deals'?DSET.has(i.id):(i.ts>=lo&&i.ts<=hi));
+ // Stocks ignore the time window too: the top 20 of the Stocks All board always show, even a stock that has been on the board for more than 30 days
+ const STSET=new Set(ITEMS.filter(i=>i.src=='stocks').sort((a,b)=>(a.rank||1e6)-(b.rank||1e6)).slice(0,20).map(i=>i.id));
+ const all=ITEMS.filter(i=>i.src=='sports'?(i.board&&i.pick&&i.ts>=lo&&i.ts<=eod.getTime()+DAY):i.src=='movies'?(i.rank!=null&&i.ts>=lo&&i.ts<=hi):i.src=='trends'?GSET.has(i.id):i.src=='deals'?DSET.has(i.id):i.src=='stocks'?STSET.has(i.id):(i.ts>=lo&&i.ts<=hi));
  all.push(...dietItems(lo,now+W,false));return all}
 // the header line: titles of what landed on the board in the last hour
 function ticker(){let L=liveList(36e5).filter(i=>i.ts<=now&&i.ts>=now-36e5);if(!L.length)L=liveList(DAY).filter(i=>i.ts<=now);
