@@ -77,7 +77,7 @@ body{position:relative}
 #totop{display:flex;position:fixed;right:1rem;bottom:calc(1rem + env(safe-area-inset-bottom,0px));z-index:400;align-items:center;gap:.4rem;font:600 .78rem system-ui,-apple-system,sans-serif;color:#fff;background:linear-gradient(100deg,#2a0a4a,#6a11cb);border:1px solid #8e2de2;border-radius:999px;padding:.45rem .85rem;cursor:pointer;box-shadow:0 10px 24px -12px rgba(0,0,0,.6);opacity:0;pointer-events:none;transform:translateY(8px);transition:opacity .2s,transform .2s}
 #totop.show{opacity:1;pointer-events:auto;transform:none}
 #totop:hover{border-color:#ff2fa0;color:#ffd0ec}
-body.site-mode #totop{display:none}
+body[data-site=sports] #totop{bottom:calc(3.5rem + env(safe-area-inset-bottom,0px))}   /* the Sports pages have their own Key button in this corner, so Top sits just above it */
 #totop svg{width:.95rem;height:.95rem;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 #back svg{width:.95rem;height:.95rem;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 body.site-mode{height:100vh;height:100dvh;display:flex;flex-direction:column;overflow:hidden}
@@ -596,6 +596,12 @@ document.getElementById('moreBtn').onclick=more;
 
 // ===== menu + in-page viewer: the other sites open in an iframe under the Trendslope header =====
 let MAINY=0;const sv=document.getElementById('siteview');
+// Top button, on the main page and inside every site in the viewer: the main grid scrolls this page, but a site scrolls inside its frame,
+// so the frame reports how far it has scrolled (ts-embed.js) and is asked to go back up when Top is tapped
+const inSite=()=>document.body.classList.contains('site-mode'),setTop=on=>{const b=document.getElementById('totop');b&&b.classList.toggle('show',!!on)},topShown=y=>y>innerHeight*.8;
+function siteTop(){const f=sv.firstElementChild;if(!f)return;
+ if(f._coop){try{f.contentWindow.postMessage({tsEmbed:1,type:'top'},new URL(f.dataset.u).origin)}catch{}return}   // ts-embed.js in the site scrolls it
+ try{f.contentWindow.scrollTo({top:0,behavior:'smooth'})}catch{}}   // a same-origin frame without ts-embed.js is scrolled directly
 // each site's own mobile scale (its viewport tag's initial-scale), vs this page's 1.0
 const SITEBG={movies:'#FFFFFF',music:'#FFFFFF',software:'#FFFFFF',books:'#FFFFFF',stocks:'#FFFFFF',trends:'#FFFFFF',deals:'#FFFFFF',sports:'#0d1322',diet:'#EEF2F0'},paint=c=>{document.documentElement.style.background=document.body.style.background=c||''};   // each site's own page color fills the strip under the slope, so the page drops in below it seamlessly
 // banner scroll-away: plain top / margin offsets (no transforms or custom properties, which iOS Safari mishandles together with clip-path)
@@ -610,7 +616,7 @@ const SITESCALE={movies:.8,music:.8,software:.8,books:.62,stocks:.75,trends:.75,
 function openSite(key,sub){location.hash='#/'+key+(sub?'/'+sub:'')}
 // a fresh iframe each time (its first load replaces the blank page instead of adding browser-history steps)
 function showSite(key,sub){const url=SITEURL(key,sub);if(!document.body.classList.contains('site-mode')){MAINY=scrollY;document.body.classList.add('site-mode')}
- const cur=sv.firstElementChild;if(!cur||cur.dataset.u!==url){document.body.classList.remove('coop');const f=document.createElement('iframe');f.dataset.u=url;f.title=NAMES[key];f.src=url;
+ const cur=sv.firstElementChild;if(!cur||cur.dataset.u!==url){document.body.classList.remove('coop');setTop(false);const f=document.createElement('iframe');f.dataset.u=url;f.title=NAMES[key];f.src=url;
   const s=SITESCALE[key],k=s/PSCALE,mobile=isMob();if(mobile&&s&&Math.abs(k-1)>.01)f.style.cssText=`inset:auto;top:0;left:0;width:${100/k}%;height:${100/k}%;transform:scale(${k});transform-origin:0 0`;   // lay the site out at its own width, then scale it to fit
   const sk=(mobile&&s&&Math.abs(k-1)>.01)?k:1;f._sk=sk;
   cancelAnimationFrame(FOLLOW);
@@ -619,11 +625,11 @@ function showSite(key,sub){const url=SITEURL(key,sub);if(!document.body.classLis
    const pad=()=>{const extra=document.body.dataset.site=='diet'?(slope.rise||0):0;tgt.style.paddingTop=(base+(hd.offsetHeight-extra)/sk)+'px'};   // the site starts just under the banner...
    pad();addEventListener('resize',pad);f._unpad=()=>{removeEventListener('resize',pad);tgt.style.paddingTop=''};
    cancelAnimationFrame(FOLLOW);
-   const tick=()=>{try{const y=Math.max(0,w.scrollY||root.scrollTop||0);shiftHdr(Math.min(y*sk,hd.offsetHeight))}catch{}FOLLOW=requestAnimationFrame(tick)};tick()}catch{}});   // ...and the banner moves up exactly as far as the site scrolls (same origin; read every frame so it stays smooth even when iOS delays scroll events)
+   const tick=()=>{try{const y=Math.max(0,w.scrollY||root.scrollTop||0);shiftHdr(Math.min(y*sk,hd.offsetHeight));setTop(topShown(y*sk))}catch{}FOLLOW=requestAnimationFrame(tick)};tick()}catch{}});   // ...and the banner moves up exactly as far as the site scrolls (same origin; read every frame so it stays smooth even when iOS delays scroll events)
   if(key=='sports')f.addEventListener('load',()=>{try{const b=f.contentDocument.body,sync=()=>paint(getComputedStyle(b).getPropertyValue('--bg').trim()||(b.classList.contains('light-theme')?'#f5f7fc':'#0d1322'));sync();new MutationObserver(sync).observe(b,{attributes:true,attributeFilter:['class']})}catch{}});   // follow the theme toggle inside the frame
   sv.replaceChildren(f);if(DBG){dbg('waiting for ts-embed from '+url);setTimeout(()=>{if(!f._coop&&sv.firstElementChild===f)dbg('NO hello after 4s: ts-embed.js is not on this site (check /ts-embed.js loads and the script line is in the page)')},4000)}}
  document.body.dataset.site=key;paint(key=='sports'?sportsBg():key=='diet'?'':SITEBG[key]);slope.k='';scrollTo(0,0);slope();shiftHdr(0);fitView();setTimeout(slope,60);setTimeout(fitView,60);setTimeout(fitView,400)}
-function showMain(){if(!document.body.classList.contains('site-mode'))return;document.body.classList.remove('site-mode','coop');delete document.body.dataset.site;cancelAnimationFrame(FOLLOW);paint('');shiftHdr(0);sv.replaceChildren();slope.k='';slope();render();scrollTo(0,MAINY)}
+function showMain(){if(!document.body.classList.contains('site-mode'))return;document.body.classList.remove('site-mode','coop');delete document.body.dataset.site;cancelAnimationFrame(FOLLOW);paint('');shiftHdr(0);sv.replaceChildren();slope.k='';slope();render();scrollTo(0,MAINY);setTop(topShown(scrollY))}
 // sites with ts-embed.js announce themselves and report their height; the frame then grows to fit and the page itself scrolls
 // add ?tsdebug=1 to the Trendslope address to see what the frame is sending
 const DBG=/[?&]tsdebug/.test(location.search);let dbgEl;const dbg=t=>{if(!DBG)return;if(!dbgEl){dbgEl=document.createElement('div');dbgEl.style.cssText='position:fixed;left:6px;top:14px;z-index:99999;background:#000c;color:#0f0;font:11px/1.3 monospace;padding:4px 7px;border-radius:6px;max-width:92vw;pointer-events:none';document.body.appendChild(dbgEl)}dbgEl.dataset.t=t;dbgEl.textContent=t+' | '+viewInfo()};
@@ -637,8 +643,8 @@ function sendPad(){const f=sv.firstElementChild;if(!f||!f._coop)return;const hd=
 addEventListener('message',e=>{const f=sv.firstElementChild;if(!f||e.source!==f.contentWindow)return;const m=e.data;if(!m||m.tsEmbed!==1)return;
  let ok=false;try{ok=e.origin===new URL(f.dataset.u).origin}catch{}if(!ok)return;
  if(m.type!=='scroll')dbg('ts-embed: '+m.type+' from '+e.origin);
- if(m.type==='hello'){if(!f._coop){f._coop=1;document.body.classList.add('coop');cancelAnimationFrame(FOLLOW);try{f._unpad&&f._unpad()}catch{}}shiftHdr(0);fitView();sendPad()}
- else if(m.type==='scroll'&&f._coop&&typeof m.y=='number'){const hd=document.querySelector('.disco');shiftHdr(Math.min(Math.max(0,m.y)*(f._sk||1),hd.offsetHeight))}});
+ if(m.type==='hello'){if(!f._coop){f._coop=1;document.body.classList.add('coop');cancelAnimationFrame(FOLLOW);try{f._unpad&&f._unpad()}catch{}}shiftHdr(0);setTop(false);fitView();sendPad()}
+ else if(m.type==='scroll'&&f._coop&&typeof m.y=='number'){const hd=document.querySelector('.disco'),py=Math.max(0,m.y)*(f._sk||1);shiftHdr(Math.min(py,hd.offsetHeight));setTop(topShown(py))}});
 function route(){const m=location.hash.match(/^#\/(\w+)(?:\/(.*))?$/);if(m&&SITE[m[1]])showSite(m[1],m[2]||'');else showMain()}
 const repaintSports=()=>{if(document.body.dataset.site=='sports')paint(sportsBg())};
 addEventListener('storage',repaintSports);TSB.ready.then(repaintSports);try{matchMedia('(prefers-color-scheme: dark)').addEventListener('change',repaintSports)}catch{}
@@ -659,9 +665,9 @@ if(window.ResizeObserver)new ResizeObserver(slope).observe(document.querySelecto
   if(half>0){x=(x+half/90*dt)%half;tr.style.marginLeft=(-x).toFixed(1)+'px'}   // full loop of the repeated text every 90s, as before
   requestAnimationFrame(step)};
  requestAnimationFrame(step)})();
-const toTop=document.getElementById('totop');   // jump back to top (main page): shows after scrolling down a screen or so
-toTop.onclick=()=>scrollTo({top:0,behavior:'smooth'});
-addEventListener('scroll',()=>toTop.classList.toggle('show',scrollY>innerHeight*.8),{passive:true});
+const toTop=document.getElementById('totop');   // jump back to top: shows after scrolling down a screen or so, on the main page and inside every site in the viewer
+toTop.onclick=()=>inSite()?siteTop():scrollTo({top:0,behavior:'smooth'});
+addEventListener('scroll',()=>{if(!inSite())setTop(topShown(scrollY))},{passive:true});
 const kick=()=>{slope()};
 requestAnimationFrame(()=>requestAnimationFrame(kick));[150,500,1200,2500,5000].forEach(ms=>setTimeout(kick,ms));
 addEventListener('load',kick);addEventListener('pageshow',kick);document.addEventListener('visibilitychange',()=>{if(!document.hidden)kick()});
