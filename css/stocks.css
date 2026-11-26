@@ -67,6 +67,11 @@ main { max-width:1700px; margin:0 auto; padding:0 24px 60px; }
 .links a:focus-visible { outline:2px solid var(--blue); outline-offset:2px; }
 .links img { width:22px; height:22px; display:block; flex:none; }
 .links .arrow { font-size:15px; line-height:1; }
+.rank-pill.idx { font-size:12px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; padding:5px 10px; }
+.chip .rk.pc { font-size:12.5px; font-weight:600; }
+.chip .rk.up { color:var(--up); } .chip .rk.down { color:var(--down); }
+.when .dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--text-dim); margin-right:6px; vertical-align:.5px; }
+.when .dot.live { background:var(--up); }
 .empty { text-align:center; padding:70px 20px; color:var(--text-dim); font-family:'IBM Plex Mono',monospace; font-size:13px; grid-column:1/-1; line-height:1.6; }
 .foot { margin-top:28px; padding-top:14px; border-top:1px solid var(--line); font-size:12px; line-height:1.6; color:var(--text-dim); }
 @media (max-width:700px) { .pline .px { font-size:18px; } .chip .rk { font-size:14.5px; } .links .arrow { display:none; } .thumb-wrap { height:118px; } .thumb-wrap img, .thumb-fallback { width:80px; height:80px; } header, main { padding-left:14px; padding-right:14px; } .grid { grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:10px; } .ticker { font-size:19px; } .chip { font-size:13px; } }
