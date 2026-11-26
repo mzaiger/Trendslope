@@ -227,7 +227,9 @@ async function stocks(){const d=await J(RAW(SITE.stocks)+'data/board.json');if(!
  rows=Object.entries(d.stocks).map(([sym,st])=>{let sc=(st.s||{})[w];if(sc&&!nw)sc=[sc[0],null,sc[1],sc[2],sc[3],sc[4]];return{sym,st,sc}}).filter(x=>x.sc);
  const rk=n=>{const m=new Map();rows.filter(x=>(x.sc[n]||0)>0).sort((a,b)=>b.sc[n]-a.sc[n]||a.sym.localeCompare(b.sym)).forEach((x,k)=>m.set(x.sym,k+1));return m};   // rank on each of the site's tabs
  const R=[0,1,2,3].map(rk),board=rows.filter(x=>(x.sc[4]||0)>0).sort((a,b)=>b.sc[4]-a.sc[4]||a.sym.localeCompare(b.sym));
- add(board.map((x,k)=>({id:'st'+x.sym,src:'stocks',raw:{...x.st,sym:x.sym,rks:R.map(m=>m.get(x.sym)||0)},rank:k+1,title:(x.sym+' '+(x.st.n||'')).trim(),ts:Date.parse(x.st.since)})).filter(x=>!isNaN(x.ts)).slice(0,20))}   // only the top 20 of the Stocks All board
+ add(board.map((x,k)=>({id:'st'+x.sym,src:'stocks',raw:{...x.st,sym:x.sym,rks:R.map(m=>m.get(x.sym)||0)},rank:k+1,title:(x.sym+' '+(x.st.n||'')).trim(),ts:Date.parse(x.st.since)})).filter(x=>!isNaN(x.ts)).slice(0,20));   // only the top 20 of the Stocks All board
+ // the index tiles (S&P 500, Dow, Nasdaq) come from board.json "indices" with ranks 0.1, 0.2, 0.3, so they sort ahead of #1; they are extra to the top 20 (see STSET)
+ add(Object.entries(d.indices||{}).filter(([,x])=>x&&x.p!=null&&x.rk!=null).map(([sym,x])=>({id:'stx'+sym.replace(/\W/g,''),src:'stocks',idx:1,raw:{...x,sym,idx:1},rank:x.rk,title:x.n||sym,ts:Date.parse(x.t)})).filter(x=>!isNaN(x.ts)))}
 const hid=s=>{let h=5381;for(let i=0;i<s.length;i++)h=(h*33^s.charCodeAt(i))>>>0;return h.toString(36)};
 async function deals(){try{const seenD=new Set();const r=await fetch(RAW(SITE.deals)+'deals.xml?v='+Math.floor(now/9e5));const x=new DOMParser().parseFromString(await r.text(),'text/xml');
  const EX=new Map();try{const xr=new DOMParser().parseFromString(await(await fetch(RAW(SITE.deals)+'expired.xml?v='+Math.floor(now/9e5))).text(),'text/xml');xr.querySelectorAll('expiration').forEach(e=>{const t=(e.querySelector('title')?.textContent||'').trim(),rt=parseInt(e.querySelector('rating')?.textContent,10);if(t)EX.set(t,{expired:(e.querySelector('expired')?.textContent||'').trim().toLowerCase()==='true',rating:Number.isFinite(rt)?rt:null})})}catch{}   // expired.xml: which deals are expired + a fresher rating
@@ -416,7 +418,7 @@ const stkMoney=v=>v==null?'\u2014':v>=1e12?`$${(v/1e12).toFixed(v>=1e13?0:1)}T`:
 const stkShares=v=>v==null?'\u2014':v>=1e9?`${(v/1e9).toFixed(2)}B`:v>=1e8?`${Math.round(v/1e6)}M`:v>=1e6?`${(v/1e6).toFixed(1)}M`:v>=1e3?`${Math.round(v/1e3)}K`:String(Math.round(v));
 const stkCount=v=>v==null?'\u2014':v>=1e4?`${(v/1e3).toFixed(0)}K`:v>=1e3?`${(v/1e3).toFixed(1)}K`:String(v);
 const stkSign=v=>(v>0?'+':'')+v.toFixed(2)+'%',stkUsd=v=>v!=null?'$'+v.toFixed(2):'\u2014',stkPts=v=>v==null?'':(v>0?'+':'')+v.toFixed(2),stkArrow=v=>v>0?'\u25b2':v<0?'\u25bc':'',stkCls=v=>v>0?'up':v<0?'down':'';
-function stkTile(i){const st=i.raw,sym=st.sym,q=encodeURIComponent(sym),site=st.web?safeUrl(st.web):'',host=site?new URL(site).hostname:'';
+function stkTile(i){if(i.idx)return idxTile(i);const st=i.raw,sym=st.sym,q=encodeURIComponent(sym),site=st.web?safeUrl(st.web):'',host=site?new URL(site).hostname:'';
  const fav=d=>`https://www.google.com/s2/favicons?domain=${encodeURIComponent(d)}&sz=128`,logo=`https://images.financialmodelingprep.com/symbol/${q}.png`;
  const icon=(href,src,name)=>`<a href="${esc(href)}" target="_blank" rel="noopener noreferrer" title="${esc(name)}" aria-label="${esc(name)}"><img src="${esc(src)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.replaceWith(document.createTextNode('${name[0]}'))"><span class="arrow">\u2197</span></a>`;
  const links=[];if(site)links.push(icon(site,fav(host),'Company website'));
@@ -434,6 +436,24 @@ function stkTile(i){const st=i.raw,sym=st.sym,q=encodeURIComponent(sym),site=st.
  <div class="chip" title="Shares traded today"><small>Volume</small><span class="val">${stkShares(st.v)}</span>${rk(2)}</div>
  <div class="chip" title="Reddit mentions in the last 24 hours, and the change from the 24 hours before"><small>Buzz</small><span class="val">${stkCount(st.m)}${surge?`<span class="pct ${surge[0]=='\u25b2'?'up':surge[0]=='\u25bc'?'down':''}">${surge}</span>`:''}</span>${rk(3)}</div></div>
  ${st.since?`<p class="when"><span class="ago">${relT(st.since)}</span></p>`:''}<div class="links" style="grid-template-columns:repeat(${links.length},minmax(0,1fr))">${links.join('')}</div></div></article>`}
+// Index tile (S&P 500, Dow, Nasdaq): same markup as indexCardHtml() on the Stocks site; label, name, links and levels all come from board.json "indices"
+const idxN0=v=>v==null?'\u2014':Math.round(v).toLocaleString('en-US'),idxN2=v=>v==null?'\u2014':v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}),idxSigned=v=>(v>0?'+':'')+idxN2(v);
+function idxTile(i){const ix=i.raw,sym=ix.sym,q=encodeURIComponent(sym),fav=d=>`https://www.google.com/s2/favicons?domain=${encodeURIComponent(d)}&sz=128`,
+ icon=(href,src,name)=>`<a href="${esc(href)}" target="_blank" rel="noopener noreferrer" title="${esc(name)}" aria-label="${esc(name)}"><img src="${esc(src)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.replaceWith(document.createTextNode('${name[0]}'))"><span class="arrow">\u2197</span></a>`,
+ site=ix.site?safeUrl(ix.site):'',tv=ix.tv?safeUrl(ix.tv):'',gf=ix.gf?safeUrl(ix.gf):'',links=[];
+ if(site)links.push(icon(site,fav(new URL(site).hostname),'Official site'));links.push(icon(`https://finance.yahoo.com/quote/${q}`,fav('finance.yahoo.com'),'Yahoo Finance'));
+ if(tv)links.push(icon(tv,fav('tradingview.com'),'TradingView'));if(gf)links.push(icon(gf,fav('google.com'),'Google Finance'));
+ const pct=ix.c,gap=v=>ix.pc&&v!=null?(v/ix.pc-1)*100:null,
+ chip=(l,v,tip)=>{const g=gap(v);return`<div class="chip" title="${esc(tip)}"><small>${l}</small><span class="val">${idxN0(v)}</span><span class="rk pc ${stkCls(g)}">${g==null?'\u2014':stkSign(g)}</span></div>`},
+ gt=v=>v>=10?v.toFixed(0):v.toFixed(1);let range='';
+ if(ix.h52&&ix.l52){const below=(ix.h52-ix.p)/ix.h52*100,above=(ix.p-ix.l52)/ix.l52*100;range=below<=.05?'At its 52-week high':`${gt(below)}% below its 52-week high \u00b7 ${gt(Math.max(0,above))}% above its 52-week low`}
+ const code=ix.code||sym.replace('^',''),img=ix.icon?`<img src="${esc(fav(ix.icon))}" data-next="" data-sym="${esc(code)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="logoErr(this)">`:`<div class="thumb-fallback">${esc(code)}</div>`;
+ return`<article class="card index"><div class="thumb-wrap">${img}${favT(i)}<div class="rank-pill idx" title="Market index, pinned above the ranked stocks">Index</div></div>
+ <div class="body"><div class="ticker-row"><p class="ticker"><a href="https://finance.yahoo.com/quote/${q}" target="_blank" rel="noopener noreferrer" title="Open ${esc(ix.n||sym)} on Yahoo Finance">${esc(ix.n||sym)}<span class="arrow" aria-hidden="true">\u2197</span></a></p></div>
+ <div class="pricebox"><div class="pline" title="Index level and change since the previous close"><span class="px">${idxN2(ix.p)}</span>${pct==null?'':`<span class="dlt ${stkCls(pct)}">${ix.ch==null?'':idxSigned(ix.ch)+' '}${stkSign(pct)} ${stkArrow(pct)}</span>`}</div></div>
+ <p class="name">${esc(ix.fn||ix.n||'')}${ix.pc!=null?` \u00b7 Prev ${idxN2(ix.pc)}`:''}</p>${range?`<p class="why">${range}</p>`:''}
+ <div class="chips">${chip('Open',ix.op,'Today\u2019s opening level, and how far it was from the previous close')}${chip('High',ix.hi,'Today\u2019s high, and how far it is from the previous close')}${chip('Low',ix.lo,'Today\u2019s low, and how far it is from the previous close')}</div>
+ ${ix.t?`<p class="when"><span class="dot${ix.live?' live':''}"></span>${ix.live?'Open':'Closed'} \u00b7 <span class="ago">${relT(ix.t)}</span></p>`:''}<div class="links" style="grid-template-columns:repeat(${links.length},minmax(0,1fr))">${links.join('')}</div></div></article>`}
 // "See more" on the tiles whose own site has it (Movies, Music, Books & Audio, Software): the description is cut at 5 lines and the button shows only when text is really cut off.
 // EXP remembers which tiles are open, so a redraw (e.g. after favoriting) doesn't fold them shut again.
 const EXP=new Set();
@@ -481,7 +501,7 @@ const SPAGE={cfb:'index.html',ncaamb:'ncaamb.html',nfl:'nfl.html',mlb:'mlb.html'
 const SPORTL={nfl:'NFL',cfb:'College Football',nhl:'NHL',nba:'NBA',mlb:'MLB',ncaamb:'College Basketball'};
 const SUBS={social_media:'Social Media',google:'Google',reddit:'Reddit',github:'GitHub',steam:'Steam',itunes:'App Store',books:'Books',audiobooks:'Audio Books',podcasts:'Podcasts'},SPN={cfb:'ncaaf'};
 const NAMES={movies:'Movies',music:'Music',software:'Software',books:'Books & Audio',stocks:'Stocks',trends:'Trending Topics',deals:'Slickdeals',sports:'Sports',diet:'Single Man\u2019s Diet'};
-const subOf=i=>i.src=='trends'?SUBS[i.sk]:(i.src=='software'||i.src=='books')?SUBS[i.f]:i.src=='sports'?SPORTL[i.sport]:i.src=='diet'?(DS.getMealSource(i.meal)=='frozen'?'Frozen':'Fast Food'):'';
+const subOf=i=>i.src=='trends'?SUBS[i.sk]:(i.src=='software'||i.src=='books')?SUBS[i.f]:i.src=='sports'?SPORTL[i.sport]:i.src=='diet'?(DS.getMealSource(i.meal)=='frozen'?'Frozen':'Fast Food'):i.src=='stocks'&&i.idx?'Index':'';
 let tileDrag=null;const srcPtr=(sl,e)=>{const r=sl.getBoundingClientRect();return(r.width&&(e.clientX-r.left)/r.width>=.5)?'fast':'frozen'};
 function togDesc(d,b){if(!d)return;const open=d.classList.contains('clamp');d.classList.toggle('clamp',!open);
  if(b){b.textContent=open?'See less':'See more';open?EXP.add(b.dataset.more):EXP.delete(b.dataset.more)}}
@@ -513,12 +533,12 @@ function liveList(W){const lo=now-W,hi=now+Math.min(W,DAY/2),eod=new Date(now);e
  GSET=new Set([...byRk('social_media').slice(0,20),...byRk('reddit').slice(0,25),...byRk('google').filter(i=>addT(i)>=now-36e5).slice(0,25),...byRk('google').slice(0,20)].map(i=>i.id));
  // Slickdeals ignore the time window: deals from the past 2 hours + the top 20 overall by rank (deduped)
  const DSET=new Set(ITEMS.filter(i=>i.src=='deals'&&(i.rank<=20||i.ts>=now-2*36e5)).map(i=>i.id));
- // Stocks ignore the time window too: the top 20 of the Stocks All board always show, even a stock that has been on the board for more than 30 days
- const STSET=new Set(ITEMS.filter(i=>i.src=='stocks').sort((a,b)=>(a.rank||1e6)-(b.rank||1e6)).slice(0,20).map(i=>i.id));
+ // Stocks ignore the time window too: the top 20 of the Stocks All board always show, even a stock that has been on the board for more than 30 days; the index tiles come on top of those 20
+ const STSET=new Set([...ITEMS.filter(i=>i.src=='stocks'&&i.idx),...ITEMS.filter(i=>i.src=='stocks'&&!i.idx).sort((a,b)=>(a.rank||1e6)-(b.rank||1e6)).slice(0,20)].map(i=>i.id));
  const all=ITEMS.filter(i=>i.src=='sports'?(i.board&&i.pick&&i.ts>=lo&&i.ts<=eod.getTime()+DAY):i.src=='movies'?(i.rank!=null&&i.ts>=lo&&i.ts<=hi):i.src=='trends'?GSET.has(i.id):i.src=='deals'?DSET.has(i.id):i.src=='stocks'?STSET.has(i.id):(i.ts>=lo&&i.ts<=hi));
  all.push(...dietItems(lo,now+W,false));return all}
 // the header line: titles of what landed on the board in the last hour
-function ticker(){let L=liveList(36e5).filter(i=>i.ts<=now&&i.ts>=now-36e5);if(!L.length)L=liveList(DAY).filter(i=>i.ts<=now);
+function ticker(){let L=liveList(36e5).filter(i=>!i.idx&&i.ts<=now&&i.ts>=now-36e5);if(!L.length)L=liveList(DAY).filter(i=>!i.idx&&i.ts<=now);
  L.sort((a,b)=>b.ts-a.ts);const w=L.slice(0,40).map(i=>String(i.title||'').replace(/\s+/g,' ').trim().slice(0,44).toUpperCase()).filter(Boolean);
  if(!w.length)return;const t=w.join('  \u2605  ')+'  \u2605  ';if(t===ticker.last)return;ticker.last=t;const u=t.repeat(Math.max(1,Math.ceil(260/t.length)));document.getElementById('mq').textContent=u+u}
 function slope(){const hd=document.querySelector('.disco'),el=document.getElementById('slope');if(!hd||!el)return;
